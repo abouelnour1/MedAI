@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Medicine, TFunction, Language } from '../types';
 import PillIcon from './icons/PillIcon';
 import AlternativeIcon from './icons/AlternativeIcon';
+import FactoryIcon from './icons/FactoryIcon';
 
 interface MedicineCardProps {
   medicine: Medicine;
@@ -109,9 +110,13 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
     >
       <div className="p-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-grow">
-            <h2 className="text-lg font-bold text-light-text dark:text-dark-text">{medicine['Trade Name']}</h2>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">{medicine['Scientific Name']}</p>
+          <div className="flex-grow min-w-0">
+            <h2 className="text-lg font-bold text-light-text dark:text-dark-text truncate">{medicine['Trade Name']}</h2>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary truncate">{medicine['Scientific Name']}</p>
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-light-text-secondary dark:text-dark-text-secondary">
+              <FactoryIcon />
+              <span className="truncate">{medicine['Manufacture Name']}</span>
+            </div>
           </div>
           <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
             {!isNaN(price) && (
@@ -128,7 +133,7 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
           </div>
         </div>
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-sm text-light-text-secondary dark:text-dark-text-secondary">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <PillIcon />
             <span className="truncate">{medicine.PharmaceuticalForm}</span>
           </div>

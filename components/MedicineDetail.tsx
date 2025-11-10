@@ -41,8 +41,21 @@ const MedicineDetail: React.FC<{ medicine: Medicine; t: TFunction; language: Lan
   const strengths = medicine.Strength;
   const strengthUnit = medicine.StrengthUnit || '';
 
-  const ingredients = scientificName.split(',').map(s => s.trim());
-  const strengthValues = strengths.split(',').map(s => s.trim());
+  let ingredients: string[] = [];
+  const strengthValues = strengths.split(',').map(s => s.trim()).filter(Boolean);
+  const strengthUnitValues = strengthUnit.split(',').map(s => s.trim()).filter(Boolean);
+  const commaSeparatedIngredients = scientificName.split(',').map(s => s.trim()).filter(Boolean);
+
+  if (strengthValues.length > 1 && commaSeparatedIngredients.length === 1) {
+    const spaceSeparatedIngredients = commaSeparatedIngredients[0].split(/\s+/).filter(Boolean);
+    if (spaceSeparatedIngredients.length === strengthValues.length) {
+      ingredients = spaceSeparatedIngredients;
+    } else {
+      ingredients = commaSeparatedIngredients;
+    }
+  } else {
+    ingredients = commaSeparatedIngredients;
+  }
 
   const hasMultipleIngredients = ingredients.length > 1 && ingredients.length === strengthValues.length;
 
@@ -56,14 +69,24 @@ const MedicineDetail: React.FC<{ medicine: Medicine; t: TFunction; language: Lan
             <div className="mt-3">
               <p className="text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary mb-2">{t('scientificName')}:</p>
               <ul className="space-y-1.5">
-                {ingredients.map((ingredient, index) => (
-                  <li key={index} className="flex justify-between items-baseline">
-                    <span className="text-md text-light-text dark:text-dark-text">{ingredient}</span>
-                    <span className="font-bold text-light-text dark:text-dark-text whitespace-nowrap">
-                      {`${strengthValues[index]}${strengthUnit ? ` ${strengthUnit}` : ''}`}
-                    </span>
-                  </li>
-                ))}
+                {ingredients.map((ingredient, index) => {
+                  let unit = '';
+                  if (strengthUnitValues.length === strengthValues.length) {
+                    unit = strengthUnitValues[index] || '';
+                  } else if (strengthUnitValues.length === 1) {
+                    unit = strengthUnitValues[0];
+                  }
+                  const strengthDisplay = `${strengthValues[index]}${unit ? ` ${unit}` : ''}`.trim();
+
+                  return (
+                    <li key={index} className="flex justify-between items-baseline">
+                      <span className="text-md text-light-text dark:text-dark-text">{ingredient}</span>
+                      <span className="font-bold text-light-text dark:text-dark-text whitespace-nowrap">
+                        {strengthDisplay}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : (
