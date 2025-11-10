@@ -37,21 +37,50 @@ const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFun
 
 const MedicineDetail: React.FC<{ medicine: Medicine; t: TFunction; language: Language }> = ({ medicine, t, language }) => {
   const price = parseFloat(medicine['Public price']);
+  const scientificName = medicine['Scientific Name'];
+  const strengths = medicine.Strength;
+  const strengthUnit = medicine.StrengthUnit || '';
+
+  const ingredients = scientificName.split(',').map(s => s.trim());
+  const strengthValues = strengths.split(',').map(s => s.trim());
+
+  const hasMultipleIngredients = ingredients.length > 1 && ingredients.length === strengthValues.length;
 
   return (
     <div className="bg-light-card dark:bg-dark-card p-4 rounded-xl shadow-sm animate-fade-in space-y-8">
       <div>
         <div className="px-2 sm:px-0">
           <h2 className="text-2xl md:text-3xl font-bold leading-7 text-light-text dark:text-dark-text">{medicine['Trade Name']}</h2>
-          <p className="mt-1 max-w-2xl text-md leading-6 text-light-text-secondary dark:text-dark-text-secondary">{medicine['Scientific Name']}</p>
-          <div className="mt-4 text-accent text-3xl font-bold">
-            {isNaN(price) ? 'N/A' : `${price.toFixed(2)} ${t('sar')}`}
-          </div>
+          
+          {hasMultipleIngredients ? (
+            <div className="mt-3">
+              <p className="text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary mb-2">{t('scientificName')}:</p>
+              <ul className="space-y-1.5">
+                {ingredients.map((ingredient, index) => (
+                  <li key={index} className="flex justify-between items-baseline">
+                    <span className="text-md text-light-text dark:text-dark-text">{ingredient}</span>
+                    <span className="font-bold text-light-text dark:text-dark-text whitespace-nowrap">
+                      {`${strengthValues[index]}${strengthUnit ? ` ${strengthUnit}` : ''}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-1 max-w-2xl text-md leading-6 text-light-text-secondary dark:text-dark-text-secondary">
+              {`${scientificName}${strengths ? ` ${strengths}` : ''}${strengthUnit ? ` ${strengthUnit}` : ''}`.trim()}
+            </p>
+          )}
+
+          {!isNaN(price) && (
+              <div className="mt-4 text-accent text-3xl font-bold">
+                {`${price.toFixed(2)} ${t('sar')}`}
+              </div>
+          )}
         </div>
         <div className="mt-6 border-t border-slate-100 dark:border-slate-800">
           <dl className="divide-y divide-slate-100 dark:divide-slate-800">
             <DetailRow label={t('pharmaceuticalForm')} value={medicine.PharmaceuticalForm} />
-            <DetailRow label={t('strength')} value={`${medicine.Strength} ${medicine.StrengthUnit || ''}`.trim()} />
             <DetailRow label={t('packageSize')} value={`${medicine.PackageSize} ${medicine.PackageTypes || ''}`.trim()} />
             
             {medicine['Legal Status'] && (

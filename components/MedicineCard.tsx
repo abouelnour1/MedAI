@@ -114,9 +114,11 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">{medicine['Scientific Name']}</p>
           </div>
           <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
-            <div className="text-accent text-xl font-bold whitespace-nowrap">
-              {isNaN(price) ? 'N/A' : price.toFixed(2)} <span className="text-sm font-normal text-light-text-secondary dark:text-dark-text-secondary">{t('sar')}</span>
-            </div>
+            {!isNaN(price) && (
+              <div className="text-accent text-xl font-bold whitespace-nowrap">
+                {price.toFixed(2)} <span className="text-sm font-normal text-light-text-secondary dark:text-dark-text-secondary">{t('sar')}</span>
+              </div>
+            )}
             <LegalStatusBadge status={medicine['Legal Status']} size="sm" t={t} />
             {medicine['Product type'] === 'Supplement' && (
               <span className="inline-block font-semibold rounded-full px-2.5 py-0.5 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
