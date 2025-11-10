@@ -1,17 +1,16 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { GoogleGenAI, FunctionDeclaration, Type, Part } from '@google/genai';
+import { FunctionDeclaration, Type, Part } from '@google/genai';
 import { Medicine, TFunction, Language, ChatMessage } from '../types';
 import SearchIcon from './icons/SearchIcon';
 import AssistantIcon from './icons/AssistantIcon';
 import MarkdownRenderer from './MarkdownRenderer';
+import { runAIChat, isAIAvailable } from '../geminiService';
 
 interface InsuranceAiGuideProps {
   t: TFunction;
   language: Language;
   allMedicines: Medicine[];
 }
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const InsuranceAiGuide: React.FC<InsuranceAiGuideProps> = ({
   t,
@@ -22,6 +21,7 @@ const InsuranceAiGuide: React.FC<InsuranceAiGuideProps> = ({
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const aiAvailable = isAIAvailable();
 
   useEffect(() => {
     // Set initial welcome message
@@ -156,53 +156,27 @@ Answer the user's question clearly and comprehensively. The user might ask about
 7.  Always respond in the language of the user's query (Arabic/English).`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: newHistory.map(msg => ({ role: msg.role, parts: msg.parts })),
-        config: {
-          systemInstruction,
-          tools: [{ functionDeclarations: [searchDrugDatabaseTool] }],
-        },
-      });
-
-      let finalResponse = response;
-
-      if (response.functionCalls && response.functionCalls.length > 0) {
-        const fc = response.functionCalls[0];
-        let functionResult;
-
-        if (fc.name === 'searchDrugDatabase') {
-            const args = fc.args;
-            if (typeof args === 'object' && args !== null) {
-                functionResult = searchDrugDatabase({
-                    tradeName: typeof args.tradeName === 'string' ? args.tradeName : undefined,
-                    scientificName: typeof args.scientificName === 'string' ? args.scientificName : undefined,
-                });
-            }
-        }
-        
-        if (functionResult) {
-            const toolResponseHistory: ChatMessage[] = [...newHistory, { role: 'model', parts: [{functionCall: fc}] }];
-            toolResponseHistory.push({ role: 'user', parts: [{ functionResponse: { name: fc.name, response: functionResult } }] });
-
-            const secondResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-pro',
-                contents: toolResponseHistory.map(msg => ({ role: msg.role, parts: msg.parts })),
-                config: { systemInstruction },
-            });
-            finalResponse = secondResponse;
-        }
-      }
+      const toolImplementations = { searchDrugDatabase: searchDrugDatabase };
+      const finalResponse = await runAIChat(
+        newHistory, 
+        systemInstruction, 
+        [{ functionDeclarations: [searchDrugDatabaseTool] }], 
+        toolImplementations
+      );
       setChatHistory(prev => [...prev, { role: 'model', parts: finalResponse.candidates[0].content.parts }]);
 
     } catch (err) {
-      console.error("Gemini API error:", err);
-      const errorMsg = { role: 'model', parts: [{ text: t('geminiError') }] } as ChatMessage;
-      setChatHistory(prev => [...prev, errorMsg]);
+      console.error("AI service error:", err);
+      if (err instanceof Error && err.message.includes('API_KEY is missing')) {
+          setChatHistory(prev => [...prev, { role: 'model', parts: [{text: t('aiUnavailableMessage')}] }]);
+      } else {
+          const errorMsg = { role: 'model', parts: [{ text: t('geminiError') }] } as ChatMessage;
+          setChatHistory(prev => [...prev, errorMsg]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [userInput, isLoading, chatHistory, language, t, searchDrugDatabase]);
+  }, [userInput, isLoading, chatHistory, language, t, searchDrugDatabase, allMedicines]);
   
   const handleFormSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -213,7 +187,13 @@ Answer the user's question clearly and comprehensively. The user might ask about
     <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm flex flex-col h-[calc(100vh-220px)]">
         {/* Chat Body */}
         <div className="flex-grow p-4 overflow-y-auto space-y-4">
-          {chatHistory.map((msg, index) => {
+          {!aiAvailable && (
+            <div className="text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg m-4">
+                <h3 className="font-bold text-yellow-800 dark:text-yellow-200">{t('aiUnavailableTitle')}</h3>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">{t('aiUnavailableMessage')}</p>
+            </div>
+          )}
+          {aiAvailable && chatHistory.map((msg, index) => {
              const textPart = msg.parts.find(p => 'text' in p) as { text: string } | undefined;
              const textContent = textPart?.text || '';
 
@@ -259,13 +239,13 @@ Answer the user's question clearly and comprehensively. The user might ask about
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                    placeholder={t('insuranceSearchPlaceholder')}
+                    placeholder={aiAvailable ? t('insuranceSearchPlaceholder') : t('aiUnavailableShort')}
                     className="flex-grow w-full p-2 bg-gray-100 dark:bg-slate-700 border-2 border-transparent focus:border-primary rounded-lg outline-none transition-colors resize-none"
                     rows={1}
-                    disabled={isLoading}
+                    disabled={isLoading || !aiAvailable}
                     aria-label={t('askGeminiPlaceholder')}
                 />
-                <button type="submit" disabled={isLoading || !userInput} className="px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed transition-colors">{t('ask')}</button>
+                <button type="submit" disabled={isLoading || !userInput || !aiAvailable} className="px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed transition-colors">{t('ask')}</button>
             </form>
         </footer>
     </div>

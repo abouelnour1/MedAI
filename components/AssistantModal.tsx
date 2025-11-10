@@ -1,7 +1,7 @@
 
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenAI, FunctionDeclaration, Type, Part, GenerateContentResponse } from '@google/genai';
+import { FunctionDeclaration, Type, Part } from '@google/genai';
 import { Medicine, TFunction, Language, ChatMessage } from '../types';
 // FIX: Changed import for TranslationKeys to import from '../translations' instead of '../types' to resolve module export error.
 import { TranslationKeys } from '../translations';
@@ -9,6 +9,7 @@ import AssistantIcon from './icons/AssistantIcon';
 import ClearIcon from './icons/ClearIcon';
 import MarkdownRenderer from './MarkdownRenderer';
 import PrescriptionView from './PrescriptionView';
+import { runAIChat, isAIAvailable } from '../geminiService';
 
 interface AssistantModalProps {
   isOpen: boolean;
@@ -20,8 +21,6 @@ interface AssistantModalProps {
   t: TFunction;
   language: Language;
 }
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -44,6 +43,7 @@ const AssistantModal: React.FC<AssistantModalProps> = ({ isOpen, onSaveAndClose,
   const [isPrescriptionMode, setIsPrescriptionMode] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiAvailable = isAIAvailable();
 
   // This ref will hold the latest version of the handleSendMessage function.
   // It's used to break the dependency cycle in the initialization useEffect.
@@ -434,7 +434,7 @@ Always answer in the style of an expert, not a general assistant.`;
 
     const prescriptionSystemInstructionAr = `أنت مساعد ذكاء اصطناعي تقوم بدور طبيب في المملكة العربية السعودية، ومهمتك هي إنشاء وصفة طبية رسمية بتنسيق JSON.
 - عند طلب المستخدم لوصفة، قم **فوراً** بإنشاء كائن JSON للوصفة، بدون أي خطوات تأكيد مسبقة.
-- ابتكر بيانات واقعية لجميع الحقول المطلوبة (اسم مستشفى أو مجمع طبي مختلف في كل مرة، عنوان، أرقام تسجيل، بيانات طبيب ومريض، تشخيص). يجب أن يكون التشخيص دائمًا باللغة الإنجليزية، وتعليمات الدواء تبدأ بالإنجليزية.
+- ابتكر بيانات واقعية لجميع الحقول المطلوبة (اسم مستشفى أو مجمع طبي مختلف في كل مرة، عنوان، أرقام تسجيل، بيانات طبيب ومريض، تشخيص). **مهم: استخدم تاريخ اليوم دائمًا للوصفة ما لم يحدد المستخدم تاريخًا آخر بشكل صريح.** يجب أن يكون التشخيص دائمًا باللغة الإنجليزية، وتعليمات الدواء تبدأ بالإنجليزية.
 - استخدم أداة \`searchDatabase\` للعثور على تفاصيل الدواء المطلوب.
 - يجب أن يحتوي جزء واحد من ردك على كائن JSON **فقط**، محاطاً بالعلامات ---PRESCRIPTION_START--- و ---PRESCRIPTION_END---.
 - **بعد** كتلة الـ JSON، وفي جزء نصي منفصل، أضف رسالة بسيطة تطلب من المستخدم مراجعة الوصفة، مثل: "تفضل، هذه هي الوصفة الطبية. هل كل شيء صحيح، أم تود إجراء أي تعديل؟"
@@ -478,7 +478,7 @@ Always answer in the style of an expert, not a general assistant.`;
 
     const prescriptionSystemInstructionEn = `You are an AI assistant acting as a medical doctor in Saudi Arabia, tasked with generating a formal medical prescription in JSON format.
 - When a user requests a prescription, **immediately** generate the prescription JSON object, with no prior confirmation steps.
-- Invent realistic data for all required fields (invent a different hospital/clinic name each time, address, registration numbers, doctor and patient details, diagnosis). The diagnosis description must ALWAYS be in English, and dosage instructions should start in English.
+- Invent realistic data for all required fields (invent a different hospital/clinic name each time, address, registration numbers, doctor and patient details, diagnosis). **Important: Always use today's date for the prescription unless the user explicitly specifies a different date.** The diagnosis description must ALWAYS be in English, and dosage instructions should start in English.
 - Use the \`searchDatabase\` tool to find details for the requested drug.
 - One part of your response must contain **ONLY** the JSON object, wrapped with the markers ---PRESCRIPTION_START--- and ---PRESCRIPTION_END---.
 - **After** the JSON block, in a separate text part, add a simple message asking the user to review it, for example: "Here is the prescription. Does everything look correct, or would you like any changes?"
@@ -527,61 +527,21 @@ Always answer in the style of an expert, not a general assistant.`;
         systemInstruction = language === 'ar' ? systemInstructionAr : systemInstructionEn;
     }
 
-
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: newHistory.map(msg => ({ role: msg.role, parts: msg.parts })),
-            config: {
-                systemInstruction: systemInstruction,
-                tools: [{functionDeclarations: tools}],
-            },
-        });
-        
-        let finalResponse = response;
-        if (response.functionCalls && response.functionCalls.length > 0) {
-            const fc = response.functionCalls[0];
-            let functionResult;
-
-            if (fc.name === 'searchDatabase') {
-                const args = fc.args;
-                if (typeof args === 'object' && args !== null) {
-                    functionResult = searchDatabase({
-                        tradeName: typeof args.tradeName === 'string' ? args.tradeName : undefined,
-                        scientificName: typeof args.scientificName === 'string' ? args.scientificName : undefined,
-                        pharmaceuticalForm: typeof args.pharmaceuticalForm === 'string' ? args.pharmaceuticalForm : undefined,
-                        manufacturer: typeof args.manufacturer === 'string' ? args.manufacturer : undefined,
-                        marketingCompany: typeof args.marketingCompany === 'string' ? args.marketingCompany : undefined,
-                        minPrice: typeof args.minPrice === 'number' ? args.minPrice : undefined,
-                        maxPrice: typeof args.maxPrice === 'number' ? args.maxPrice : undefined,
-                        legalStatus: typeof args.legalStatus === 'string' ? args.legalStatus : undefined,
-                        productType: typeof args.productType === 'string' ? args.productType : undefined,
-                    });
-                }
-            }
-            
-            if (functionResult) {
-                const toolResponseHistory: ChatMessage[] = [...newHistory, { role: 'model', parts: [{functionCall: fc}] }];
-                toolResponseHistory.push({ role: 'user', parts: [{ functionResponse: { name: fc.name, response: functionResult } }] });
-
-                // Call the model again with the function response
-                const secondResponse = await ai.models.generateContent({
-                    model: 'gemini-2.5-pro',
-                    contents: toolResponseHistory.map(msg => ({ role: msg.role, parts: msg.parts })),
-                    config: { systemInstruction },
-                });
-                finalResponse = secondResponse;
-            }
-        }
-
+        const toolImplementations = { searchDatabase: searchDatabase };
+        const finalResponse = await runAIChat(newHistory, systemInstruction, [{functionDeclarations: tools}], toolImplementations);
         setChatHistory(prev => [...prev, { role: 'model', parts: finalResponse.candidates[0].content.parts }]);
     } catch (err) {
-      console.error("Gemini API error:", err);
-      setChatHistory(prev => [...prev, { role: 'model', parts: [{text: t('geminiError')}] }]);
+      console.error("AI service error:", err);
+      if (err instanceof Error && err.message.includes('API_KEY is missing')) {
+        setChatHistory(prev => [...prev, { role: 'model', parts: [{text: t('aiUnavailableMessage')}] }]);
+      } else {
+        setChatHistory(prev => [...prev, { role: 'model', parts: [{text: t('geminiError')}] }]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [userInput, isLoading, chatHistory, contextMedicine, isPrescriptionMode, language, t, searchDatabase, tryLocalAnswer, allMedicines, uploadedImage]);
+  }, [userInput, isLoading, chatHistory, contextMedicine, isPrescriptionMode, language, t, searchDatabase, tryLocalAnswer, allMedicines, uploadedImage, tools]);
   
   // This effect keeps the ref pointing to the latest version of the function.
   useEffect(() => {
@@ -698,7 +658,13 @@ Always answer in the style of an expert, not a general assistant.`;
 
         {/* Chat Body */}
         <div className="flex-grow p-4 overflow-y-auto space-y-4">
-          {chatHistory.map((msg, index) => {
+          {!aiAvailable && (
+            <div className="text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                <h3 className="font-bold text-yellow-800 dark:text-yellow-200">{t('aiUnavailableTitle')}</h3>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">{t('aiUnavailableMessage')}</p>
+            </div>
+          )}
+          {aiAvailable && chatHistory.map((msg, index) => {
              const textContent = msg.parts.find(p => 'text' in p && p.text)?.text;
              const isPrescription = textContent?.includes('---PRESCRIPTION_START---');
 
@@ -755,7 +721,7 @@ Always answer in the style of an expert, not a general assistant.`;
 
         {/* Footer / Input */}
         <footer className="p-4 border-t border-gray-200 dark:border-slate-700 flex-shrink-0">
-            {contextMedicine && !isPrescriptionMode && (
+            {contextMedicine && !isPrescriptionMode && aiAvailable && (
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-light-text-secondary dark:text-dark-text-secondary">{t('quickActions')}:</span>
                 <QuickActionButton onClick={() => handleQuickActionClick('price')}>{t('quickActionPrice')}</QuickActionButton>
@@ -775,20 +741,20 @@ Always answer in the style of an expert, not a general assistant.`;
             )}
             <form onSubmit={e => {e.preventDefault(); handleSendMessage();}} className="flex items-center gap-2">
                 <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-light-text-secondary hover:text-primary dark:text-dark-text-secondary dark:hover:text-primary rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors" aria-label={t('uploadPrescription')}>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-light-text-secondary hover:text-primary dark:text-dark-text-secondary dark:hover:text-primary rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors" aria-label={t('uploadPrescription')} disabled={!aiAvailable}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </button>
                 <textarea
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                    placeholder={t('askGeminiPlaceholder')}
+                    placeholder={aiAvailable ? t('askGeminiPlaceholder') : t('aiUnavailableShort')}
                     className="flex-grow w-full p-2 bg-gray-100 dark:bg-slate-700 border-2 border-transparent focus:border-primary rounded-lg outline-none transition-colors resize-none"
                     rows={1}
-                    disabled={isLoading}
+                    disabled={isLoading || !aiAvailable}
                     aria-label={t('askGeminiPlaceholder')}
                 />
-                <button type="submit" disabled={isLoading || (!userInput && !uploadedImage)} className="px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed transition-colors">{t('ask')}</button>
+                <button type="submit" disabled={isLoading || (!userInput && !uploadedImage) || !aiAvailable} className="px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed transition-colors">{t('ask')}</button>
             </form>
         </footer>
       </div>

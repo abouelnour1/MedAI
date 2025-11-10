@@ -202,6 +202,9 @@ export const translations = {
     sfdaRegistrationStatus: "حالة تسجيل SFDA",
     availableStrengthsForms: 'التركيزات والأشكال المتوفرة',
     descriptiveCode: 'الكود الوصفي',
+    aiUnavailableTitle: 'ميزة الذكاء الاصطناعي غير متاحة',
+    aiUnavailableMessage: 'المساعد الذكي غير متاح حاليًا. يجب على المسؤول تكوين مفتاح API.',
+    aiUnavailableShort: 'الذكاء الاصطناعي غير متاح',
   },
   en: {
     appTitle: 'Saudi Drug Directory',
@@ -405,6 +408,9 @@ export const translations = {
     sfdaRegistrationStatus: "SFDA Registration",
     availableStrengthsForms: 'Available Strengths & Forms',
     descriptiveCode: 'Descriptive Code',
+    aiUnavailableTitle: 'AI Feature Unavailable',
+    aiUnavailableMessage: 'The AI assistant is currently unavailable. An API key needs to be configured by the administrator.',
+    aiUnavailableShort: 'AI Unavailable',
   }
 };
 
