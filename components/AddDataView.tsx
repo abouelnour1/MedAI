@@ -42,24 +42,48 @@ const AddDataView: React.FC<AddDataViewProps> = ({ onImport, t }) => {
       setError(t('errorInputEmpty'));
       return;
     }
-    try {
-      const data = JSON.parse(jsonInput);
-      if (!Array.isArray(data)) {
-        throw new Error(t('errorInvalidJsonArray'));
-      }
-       if (data.some(item => typeof item !== 'object' || item === null)) {
-         throw new Error(t('errorArrayObjectOnly'));
-      }
 
-      onImport(data);
-      setSuccess(t('importSuccess', { count: data.length }));
-      setJsonInput('');
+    let data;
+    try {
+        data = JSON.parse(jsonInput);
     } catch (e) {
-      if (e instanceof Error) {
-        setError(t('errorJsonParse', { message: e.message }));
-      } else {
-        setError(t('errorUnexpected'));
-      }
+        let detailedError = t('errorUnexpected');
+        if (e instanceof Error) {
+            let specificHint = '';
+            if (e.message.includes('Unexpected non-whitespace character after JSON')) {
+                specificHint = t('jsonErrorHintExtraText');
+            } else if (e.message.includes('Unexpected token') && (jsonInput.includes("'") || jsonInput.match(/([{,]\s*)(\w+)\s*:/))) {
+                specificHint = t('jsonErrorHintQuotes');
+            }
+            detailedError = `${t('errorJsonParse', { message: e.message })}${specificHint ? `\n\n${specificHint}` : ''}`;
+        }
+        setError(detailedError);
+        return;
+    }
+    
+    try {
+        if (typeof data === 'object' && !Array.isArray(data) && data !== null) {
+            // If the user provides a single object, wrap it in an array for them.
+            data = [data];
+        }
+
+        if (!Array.isArray(data)) {
+            throw new Error(t('errorInvalidJsonArray'));
+        }
+        if (data.some(item => typeof item !== 'object' || item === null)) {
+            throw new Error(t('errorArrayObjectOnly'));
+        }
+
+        onImport(data);
+        setSuccess(t('importSuccess', { count: data.length }));
+        setJsonInput('');
+    } catch (e) {
+        console.error("Data processing error:", e);
+        if (e instanceof Error) {
+             setError(e.message);
+        } else {
+             setError(t('errorProcessingData'));
+        }
     }
   };
 
@@ -92,12 +116,12 @@ const AddDataView: React.FC<AddDataViewProps> = ({ onImport, t }) => {
         />
       </div>
 
-      {error && <div className="bg-red-100 dark:bg-red-900/30 border-r-4 border-red-500 text-red-700 dark:text-red-200 p-4 rounded-md" role="alert">{error}</div>}
+      {error && <div className="bg-red-100 dark:bg-red-900/30 border-r-4 border-red-500 text-red-700 dark:text-red-200 p-4 rounded-md whitespace-pre-wrap" role="alert">{error}</div>}
       {success && <div className="bg-green-100 dark:bg-green-900/30 border-r-4 border-green-500 text-green-700 dark:text-green-200 p-4 rounded-md" role="alert">{success}</div>}
 
       <button
         onClick={handleImportClick}
-        className="w-full bg-primary hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+        className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
       >
         {t('importData')}
       </button>

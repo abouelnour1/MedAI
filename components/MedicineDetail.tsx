@@ -41,21 +41,9 @@ const MedicineDetail: React.FC<{ medicine: Medicine; t: TFunction; language: Lan
   const strengths = medicine.Strength;
   const strengthUnit = medicine.StrengthUnit || '';
 
-  let ingredients: string[] = [];
   const strengthValues = strengths.split(',').map(s => s.trim()).filter(Boolean);
   const strengthUnitValues = strengthUnit.split(',').map(s => s.trim()).filter(Boolean);
-  const commaSeparatedIngredients = scientificName.split(',').map(s => s.trim()).filter(Boolean);
-
-  if (strengthValues.length > 1 && commaSeparatedIngredients.length === 1) {
-    const spaceSeparatedIngredients = commaSeparatedIngredients[0].split(/\s+/).filter(Boolean);
-    if (spaceSeparatedIngredients.length === strengthValues.length) {
-      ingredients = spaceSeparatedIngredients;
-    } else {
-      ingredients = commaSeparatedIngredients;
-    }
-  } else {
-    ingredients = commaSeparatedIngredients;
-  }
+  const ingredients = scientificName.split(',').map(s => s.trim()).filter(Boolean);
 
   const hasMultipleIngredients = ingredients.length > 1 && ingredients.length === strengthValues.length;
 

@@ -272,7 +272,6 @@ const App: React.FC = () => {
                 const priceB = parseFloat(b['Public price']);
                  if (isNaN(priceA) && !isNaN(priceB)) return 1;
                  if (!isNaN(priceA) && isNaN(priceB)) return -1;
-                // FIX: Corrected a typo where the object `a` was being subtracted instead of the parsed price `priceA`.
                 return priceB - priceA;
             }
             case 'alphabetical':

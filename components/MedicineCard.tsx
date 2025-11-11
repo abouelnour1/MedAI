@@ -39,8 +39,7 @@ const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFun
 
 const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onLongPress, onFindAlternative, t, language }) => {
   const price = parseFloat(medicine['Public price']);
-  // FIX: Explicitly pass an initial value to useRef to resolve the "Expected 1 arguments, but got 0" error.
-  const pressTimer = useRef<number | undefined>(undefined);
+  const pressTimer = useRef<number | undefined>();
   const startCoords = useRef({ x: 0, y: 0 });
   const isScrolling = useRef(false);
 
@@ -70,16 +69,12 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
   };
 
   const handlePointerUp = () => {
-    // On pointer up, we should always clear a pending timer.
-    // If the timer already fired (long press) or was cancelled (scroll), pressTimer.current will be undefined.
-    // This check prevents calling clearTimeout(undefined), which causes the error.
     if (pressTimer.current !== undefined) {
       window.clearTimeout(pressTimer.current);
     }
   };
 
   const handlePointerCancel = () => {
-    // If the gesture is cancelled (e.g., by the browser), clear the timer.
     if (pressTimer.current !== undefined) {
       window.clearTimeout(pressTimer.current);
       pressTimer.current = undefined;
@@ -88,12 +83,12 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
   };
 
   const handleClick = () => {
-    // Only trigger short press if timer was set (not fired) AND we were not scrolling.
-    // The timer is set to `undefined` after a long press or a scroll, so this check works for both cases.
     if (pressTimer.current !== undefined && !isScrolling.current) {
       onShortPress();
     }
   };
+  
+  const rtlTruncateFixProps = language === 'ar' ? { dir: 'ltr' as const, style: { textAlign: 'right' as const } } : {};
 
   return (
     <div
@@ -111,12 +106,25 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
       <div className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-grow min-w-0">
-            <h2 className="text-lg font-bold text-light-text dark:text-dark-text truncate">{medicine['Trade Name']}</h2>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary truncate">{medicine['Scientific Name']}</p>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-light-text-secondary dark:text-dark-text-secondary">
-              <FactoryIcon />
-              <span className="truncate">{medicine['Manufacture Name']}</span>
-            </div>
+            {medicine['Product type'] === 'Supplement' ? (
+              <>
+                <div className="flex items-center gap-1.5 text-xs text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                  <FactoryIcon />
+                  <span className="truncate" {...rtlTruncateFixProps}>{medicine['Manufacture Name']}</span>
+                </div>
+                <h2 className="text-lg font-bold text-light-text dark:text-dark-text truncate" {...rtlTruncateFixProps}>{medicine['Trade Name']}</h2>
+                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary truncate" {...rtlTruncateFixProps}>{medicine['Scientific Name']}</p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-light-text dark:text-dark-text truncate" {...rtlTruncateFixProps}>{medicine['Trade Name']}</h2>
+                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary truncate mb-1" {...rtlTruncateFixProps}>{medicine['Scientific Name']}</p>
+                 <div className="flex items-center gap-1.5 text-xs text-light-text-secondary dark:text-dark-text-secondary">
+                    <FactoryIcon />
+                    <span className="truncate" {...rtlTruncateFixProps}>{medicine['Manufacture Name']}</span>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
             {!isNaN(price) && (
@@ -132,25 +140,29 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
             )}
           </div>
         </div>
-        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-sm text-light-text-secondary dark:text-dark-text-secondary">
-          <div className="flex items-center gap-2 min-w-0">
-            <PillIcon />
-            <span className="truncate">{medicine.PharmaceuticalForm}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="font-medium">{medicine.Strength} {medicine.StrengthUnit}</span>
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onFindAlternative(medicine);
-                }}
-                className="p-1.5 text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors rounded-full"
-                title={t('findAlternativeTooltip')}
-                aria-label={t('findAlternativesButton', { name: medicine['Trade Name'] })}
-            >
-                <AlternativeIcon />
-            </button>
-          </div>
+        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 min-w-0">
+                <span className="font-medium text-light-text dark:text-dark-text truncate">
+                    {medicine.Strength} {medicine.StrengthUnit}
+                </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0 text-light-text-secondary dark:text-dark-text-secondary">
+                    <PillIcon />
+                    <span className="truncate" {...rtlTruncateFixProps}>{medicine.PharmaceuticalForm}</span>
+                </div>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onFindAlternative(medicine);
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors rounded-full"
+                    title={t('findAlternativeTooltip')}
+                    aria-label={t('findAlternativesButton', { name: medicine['Trade Name'] })}
+                >
+                    <AlternativeIcon />
+                </button>
+            </div>
         </div>
       </div>
     </div>
