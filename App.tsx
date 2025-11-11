@@ -34,6 +34,7 @@ import BarcodeScannerModal from './components/BarcodeScannerModal';
 import InsuranceDetailsView from './components/InsuranceDetailsView';
 import SunIcon from './components/SunIcon';
 import MoonIcon from './components/MoonIcon';
+import InstallIcon from './components/icons/InstallIcon';
 
 const normalizeProduct = (product: any): Medicine => {
   let productType = product['Product type'];
@@ -142,6 +143,8 @@ const App: React.FC = () => {
   const [selectedInsuranceData, setSelectedInsuranceData] = useState<SelectedInsuranceData | null>(null);
   const [insuranceSearchTerm, setInsuranceSearchTerm] = useState('');
   const [insuranceSearchMode, setInsuranceSearchMode] = useState<InsuranceSearchMode>('tradeName');
+  
+  const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     // Priority 1: User's saved preference
@@ -164,6 +167,28 @@ const App: React.FC = () => {
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPromptEvent(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = () => {
+    if (!installPromptEvent) return;
+    installPromptEvent.prompt();
+    installPromptEvent.userChoice.then((choiceResult: { outcome: string }) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User accepted the install prompt');
+      } else {
+        console.log('User dismissed the install prompt');
+      }
+      setInstallPromptEvent(null);
+    });
   };
 
 
@@ -659,10 +684,6 @@ const App: React.FC = () => {
                                     <span>{t('languageSwitcher')}</span>
                                     <span className="font-semibold text-primary">{t('langShortOpposite')}</span>
                                 </button>
-                                <button onClick={toggleTheme} className="w-full text-left p-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/60 flex justify-between items-center transition-colors">
-                                    <span>{theme === 'light' ? t('darkMode') : t('lightMode')}</span>
-                                    <span className="text-primary">{theme === 'light' ? <MoonIcon /> : <SunIcon />}</span>
-                                </button>
                             </div>
                         </div>
                         <div className="bg-light-card dark:bg-dark-card rounded-xl p-2 shadow-sm">
@@ -692,7 +713,17 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto bg-light-bg dark:bg-dark-bg">
-      <Header ref={headerRef} title={getHeaderTitle()} showBack={showBackButton} onBack={handleBack} />
+      <Header
+        ref={headerRef}
+        title={getHeaderTitle()}
+        showBack={showBackButton}
+        onBack={handleBack}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        showInstallButton={!!installPromptEvent}
+        onInstallClick={handleInstallClick}
+        t={t}
+      />
       
       <main className="flex-grow overflow-y-auto no-scrollbar pb-20">
         {activeTab === 'search' && (

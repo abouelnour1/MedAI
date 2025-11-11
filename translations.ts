@@ -205,6 +205,12 @@ export const translations = {
     aiUnavailableTitle: 'ميزة الذكاء الاصطناعي غير متاحة',
     aiUnavailableMessage: 'المساعد الذكي غير متاح حاليًا. يجب على المسؤول تكوين مفتاح API.',
     aiUnavailableShort: 'الذكاء الاصطناعي غير متاح',
+    errorProcessingData: 'خطأ في معالجة البيانات. يرجى التحقق من أن تنسيق البيانات صحيح.',
+    errorInvalidJsonObject: 'البيانات المدخلة يجب أن تكون بصيغة كائن JSON واحد.',
+    jsonErrorHintExtraText: 'تأكد من عدم وجود أي نصوص إضافية قبل أو بعد بيانات JSON (مثل `var data = ...`).',
+    jsonErrorHintQuotes: 'تأكد من استخدام علامات الاقتباس المزدوجة (") حول جميع المفاتيح والنصوص، وليس علامات الاقتباس المفردة (\').',
+    appInstallation: 'تثبيت التطبيق',
+    installApp: 'تثبيت التطبيق على جهازك',
   },
   en: {
     appTitle: 'Saudi Drug Directory',
@@ -411,6 +417,13 @@ export const translations = {
     aiUnavailableTitle: 'AI Feature Unavailable',
     aiUnavailableMessage: 'The AI assistant is currently unavailable. An API key needs to be configured by the administrator.',
     aiUnavailableShort: 'AI Unavailable',
+    errorJsonParse: 'Error parsing JSON: {message}',
+    errorProcessingData: 'Error processing data. Please check that the data format is correct.',
+    errorInvalidJsonObject: 'Input data must be a single JSON object.',
+    jsonErrorHintExtraText: 'Please ensure there is no extra text before or after the JSON data (e.g., `var data = ...`).',
+    jsonErrorHintQuotes: 'Please ensure you are using double quotes (") for all keys and string values, not single quotes (\').',
+    appInstallation: 'App Installation',
+    installApp: 'Install App on Your Device',
   }
 };
 

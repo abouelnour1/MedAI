@@ -39,7 +39,8 @@ const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFun
 
 const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onLongPress, onFindAlternative, t, language }) => {
   const price = parseFloat(medicine['Public price']);
-  const pressTimer = useRef<number | undefined>();
+  // FIX: Explicitly pass `undefined` as the initial value to `useRef` to resolve the error "Expected 1 arguments, but got 0".
+  const pressTimer = useRef<number | undefined>(undefined);
   const startCoords = useRef({ x: 0, y: 0 });
   const isScrolling = useRef(false);
 

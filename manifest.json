@@ -1,0 +1,16 @@
+{
+  "name": "دليل الدواء السعودي",
+  "short_name": "medAI",
+  "description": "An application to search for medicines and supplements available in Saudi Arabia by trade name or active ingredient, and view their prices. It also allows for adding new medication data in JSON format.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#14b8a6",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
