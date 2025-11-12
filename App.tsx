@@ -725,7 +725,7 @@ const App: React.FC = () => {
         t={t}
       />
       
-      <main className="flex-grow overflow-y-auto no-scrollbar pb-20">
+      <main className="flex-grow overflow-y-auto no-scrollbar pb-24">
         {activeTab === 'search' && (
             <div className="p-4 pt-3 space-y-3 sticky top-0 bg-light-bg dark:bg-dark-bg z-10">
                 <SearchBar
