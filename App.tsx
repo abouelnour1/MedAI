@@ -150,6 +150,7 @@ const App: React.FC = () => {
   });
   const pendingAICallback = useRef<(() => void) | null>(null);
   // Password protection is enabled ONLY if a secret key is explicitly set in the environment.
+  // The execution environment provides `process.env`, not `import.meta.env`.
   const isPasswordProtectionEnabled = !!process.env.VITE_APP_SECRET_KEY;
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
