@@ -15,6 +15,7 @@ interface InsuranceSearchViewProps {
   setInsuranceSearchTerm: (term: string) => void;
   insuranceSearchMode: InsuranceSearchMode;
   setInsuranceSearchMode: (mode: InsuranceSearchMode) => void;
+  requestAIAccess: (callback: () => void) => void;
 }
 
 type Mode = 'simple' | 'ai';
@@ -33,14 +34,22 @@ const InsuranceSearchView: React.FC<InsuranceSearchViewProps> = (props) => {
     `;
   };
 
+  const handleModeChange = (newMode: Mode) => {
+    if (newMode === 'ai') {
+        props.requestAIAccess(() => setMode('ai'));
+    } else {
+        setMode('simple');
+    }
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="p-1 bg-slate-100 dark:bg-dark-card rounded-xl flex">
-        <button onClick={() => setMode('simple')} className={getButtonClasses('simple')}>
+        <button onClick={() => handleModeChange('simple')} className={getButtonClasses('simple')}>
           <div className="h-4 w-4"><SearchIcon /></div>
           {props.t('simpleSearch')}
         </button>
-        <button onClick={() => setMode('ai')} className={getButtonClasses('ai')}>
+        <button onClick={() => handleModeChange('ai')} className={getButtonClasses('ai')}>
           <SparkleIcon />
           {props.t('aiGuide')}
         </button>

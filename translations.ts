@@ -212,6 +212,12 @@ export const translations = {
     appInstallation: 'تثبيت التطبيق',
     installApp: 'تثبيت التطبيق على جهازك',
     installNotAvailable: 'التثبيت غير متاح حالياً. استمر في استخدام التطبيق لتفعيله.',
+    aiAccessControlTitle: 'الوصول مطلوب',
+    aiAccessControlMessage: 'لاستخدام هذه الميزة، يرجى إدخال المفتاح السري.',
+    secretKey: 'المفتاح السري',
+    secretKeyPlaceholder: 'أدخل المفتاح السري هنا...',
+    unlock: 'فتح',
+    incorrectPasswordError: 'كلمة المرور غير صحيحة. حاول مرة اخرى.'
   },
   en: {
     appTitle: 'Saudi Drug Directory',
@@ -426,6 +432,12 @@ export const translations = {
     appInstallation: 'App Installation',
     installApp: 'Install App on Your Device',
     installNotAvailable: 'Installation not available yet. Keep using the app to enable it.',
+    aiAccessControlTitle: 'Access Required',
+    aiAccessControlMessage: 'To use this feature, please enter the secret key.',
+    secretKey: 'Secret Key',
+    secretKeyPlaceholder: 'Enter secret key here...',
+    unlock: 'Unlock',
+    incorrectPasswordError: 'Incorrect password. Please try again.'
   }
 };
 
