@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Medicine, View, Filters, TextSearchMode, Language, TFunction, Tab, SortByOption, Conversation, ChatMessage, InsuranceDrug, PrescriptionData, SelectedInsuranceData, InsuranceSearchMode } from './types';
 import Header from './components/Header';
@@ -150,7 +151,7 @@ const App: React.FC = () => {
   });
   const pendingAICallback = useRef<(() => void) | null>(null);
   // Password protection is enabled ONLY if a secret key is explicitly set in the environment.
-  const isPasswordProtectionEnabled = !!process.env.APP_SECRET_KEY;
+  const isPasswordProtectionEnabled = !!process.env.VITE_APP_SECRET_KEY;
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (localStorage.getItem('theme') === 'dark') {
