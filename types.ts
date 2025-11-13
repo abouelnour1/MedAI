@@ -1,3 +1,5 @@
+
+
 import { TranslationKeys } from './translations';
 import { Part } from '@google/genai';
 
@@ -64,7 +66,7 @@ export interface InsuranceDrug {
 
 export type ProductTypeFilter = 'all' | 'medicine' | 'supplement';
 
-export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addGuidelinesData' | 'clinicalAssistant' | 'prescriptions' | 'insuranceDetails';
+export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addGuidelinesData' | 'clinicalAssistant' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin';
 
 export type TextSearchMode = 'tradeName' | 'scientificName' | 'all';
 
@@ -146,3 +148,32 @@ export interface SelectedInsuranceData {
     indication: string;
     scientificGroup: ScientificGroupData;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  // Guest is represented by a null user object
+  role: 'admin' | 'premium'; 
+  aiRequestCount: number;
+  lastRequestDate: string; // ISO string date yyyy-mm-dd
+  status: 'active' | 'pending';
+}
+
+export interface AppSettings {
+  aiRequestLimit: number;
+}
+
+export type AuthContextType = {
+  user: User | null;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string) => Promise<void>;
+  logout: () => void;
+  requestAIAccess: (callback: () => void, t: TFunction) => void;
+  isLoading: boolean;
+  // Admin functions
+  getAllUsers: () => User[];
+  updateUser: (user: User) => void;
+  deleteUser: (userId: string) => void;
+  getSettings: () => AppSettings;
+  updateSettings: (settings: AppSettings) => void;
+};

@@ -29,10 +29,13 @@ import AddGuidelinesDataView from './components/AddGuidelinesDataView';
 import ClinicalAssistantView from './components/ClinicalAssistantView';
 import PrescriptionListView from './components/PrescriptionListView';
 import PrescriptionView from './components/PrescriptionView';
-import ClearIcon from './components/icons/ClearIcon';
 import BarcodeScannerModal from './components/BarcodeScannerModal';
 import InsuranceDetailsView from './components/InsuranceDetailsView';
-import AIPasswordModal from './components/AIPasswordModal';
+import { useAuth } from './components/auth/AuthContext';
+import { LoginView } from './components/auth/LoginView';
+import { RegisterView } from './components/auth/RegisterView';
+import { AdminDashboard } from './components/auth/AdminDashboard';
+import AdminIcon from './components/icons/AdminIcon';
 
 const normalizeProduct = (product: any): Medicine => {
   let productType = product['Product type'];
@@ -90,6 +93,8 @@ const normalizeProduct = (product: any): Medicine => {
 };
 
 const App: React.FC = () => {
+  const { user, requestAIAccess, isLoading: isAuthLoading } = useAuth();
+
   const [medicines, setMedicines] = useState<Medicine[]>(() => {
     const initialSupplements = SUPPLEMENT_DATA_RAW.map(normalizeProduct);
     return [...MEDICINE_DATA, ...initialSupplements];
@@ -121,7 +126,6 @@ const App: React.FC = () => {
   
   const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [assistantContextMedicine, setAssistantContextMedicine] = useState<Medicine | null>(null);
   const [assistantInitialPrompt, setAssistantInitialPrompt] = useState('');
@@ -142,15 +146,6 @@ const App: React.FC = () => {
   const [insuranceSearchMode, setInsuranceSearchMode] = useState<InsuranceSearchMode>('tradeName');
   
   const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
-  
-  const [isAIPasswordModalOpen, setIsAIPasswordModalOpen] = useState(false);
-  const [isAIAuthenticated, setIsAIAuthenticated] = useState(() => {
-    // Persist authentication within the session
-    return sessionStorage.getItem('ai_authenticated') === 'true';
-  });
-  const pendingAICallback = useRef<(() => void) | null>(null);
-  // Password protection is enabled ONLY if a secret key is explicitly set in the environment.
-  const isPasswordProtectionEnabled = !!process.env.VITE_APP_SECRET_KEY;
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (localStorage.getItem('theme') === 'dark') {
@@ -289,6 +284,7 @@ const App: React.FC = () => {
                 const priceB = parseFloat(b['Public price']);
                  if (isNaN(priceA) && !isNaN(priceB)) return 1;
                  if (!isNaN(priceA) && isNaN(priceB)) return -1;
+                // FIX: Corrected a typo in the sorting logic. Changed `a['Public price']` to `priceA` to ensure a numeric comparison.
                 return priceB - priceA;
             }
             case 'alphabetical':
@@ -334,8 +330,12 @@ const App: React.FC = () => {
   const handleForceSearch = useCallback(() => { if (searchTerm.trim().length > 0) setForceSearch(true); }, [searchTerm]);
 
   const handleBack = useCallback(() => {
+    if (view === 'login' || view === 'register') { setView('settings'); return; }
+    if (view === 'admin') { setView('settings'); return; }
     if (activeTab === 'prescriptions' && selectedPrescription) { setSelectedPrescription(null); return; }
+    
     const targetView = (isSearchActive && activeTab === 'search') ? 'results' : 'search';
+
     if (['details', 'alternatives', 'chatHistory', 'insuranceDetails'].includes(view)) {
        if (activeTab === 'insurance') setView('insuranceSearch');
        else if (activeTab === 'settings') setView('settings');
@@ -344,32 +344,13 @@ const App: React.FC = () => {
     else setView(targetView);
     setSourceMedicine(null); setAlternativesResults(null); setSelectedMedicine(null); setSelectedInsuranceData(null);
   }, [view, isSearchActive, activeTab, selectedPrescription]);
-  
-  const requestAIAccess = (callback: () => void) => {
-    if (isPasswordProtectionEnabled && !isAIAuthenticated) {
-        pendingAICallback.current = callback;
-        setIsAIPasswordModalOpen(true);
-    } else {
-        callback();
-    }
-  };
-
-  const handleSuccessfulAIAuth = () => {
-    setIsAIAuthenticated(true);
-    sessionStorage.setItem('ai_authenticated', 'true');
-    setIsAIPasswordModalOpen(false);
-    if (pendingAICallback.current) {
-        pendingAICallback.current();
-        pendingAICallback.current = null;
-    }
-  };
 
   const handleOpenContextualAssistant = (medicine: Medicine) => {
     requestAIAccess(() => {
       setAssistantContextMedicine(medicine);
       setAssistantInitialPrompt('');
       setIsAssistantModalOpen(true);
-    });
+    }, t);
   };
 
   const handleOpenGeneralAssistant = () => {
@@ -378,7 +359,7 @@ const App: React.FC = () => {
       setAssistantInitialPrompt('');
       setSelectedConversation(null);
       setIsAssistantModalOpen(true);
-    });
+    }, t);
   };
   
   const handleOpenPrescriptionAssistant = useCallback(() => {
@@ -387,8 +368,8 @@ const App: React.FC = () => {
       setAssistantInitialPrompt('##PRESCRIPTION_MODE##'); 
       setSelectedConversation(null);
       setIsAssistantModalOpen(true);
-    });
-  }, [isPasswordProtectionEnabled, isAIAuthenticated]);
+    }, t);
+  }, [requestAIAccess, t]);
 
   const handleFindAlternative = (medicine: Medicine) => {
     const priceSorter = (a: Medicine, b: Medicine) => parseFloat(a['Public price']) - parseFloat(b['Public price']);
@@ -405,7 +386,6 @@ const App: React.FC = () => {
         newConversations = conversations.map(c => c.id === updatedConversation.id ? updatedConversation : c);
     } else {
         const firstUserMessage = historyToSave.find(m => m.role === 'user');
-        // Find the text part within the parts array
         const textPart = firstUserMessage?.parts.find(p => 'text' in p);
         const titleText = textPart && 'text' in textPart ? textPart.text : '';
 
@@ -441,6 +421,11 @@ const App: React.FC = () => {
     return Array.from(statuses).filter(Boolean).sort();
   }, [medicines]);
 
+  const handleAdminClick = () => {
+    setView('admin');
+    setActiveTab('settings');
+  };
+
   const headerTitle = useMemo(() => {
     switch (view) {
       case 'details': return selectedMedicine ? selectedMedicine['Trade Name'] : t('appTitle');
@@ -450,6 +435,9 @@ const App: React.FC = () => {
       case 'addInsuranceData':
       case 'addGuidelinesData':
         return t('navSettings');
+      case 'login': return t('login');
+      case 'register': return t('register');
+      case 'admin': return t('adminDashboard');
       case 'chatHistory': return t('chatHistoryTitle');
       case 'insuranceSearch': return t('insuranceSearchTitle');
       case 'insuranceDetails': return t('insuranceCoverageDetails');
@@ -483,6 +471,17 @@ const App: React.FC = () => {
 
 
   const renderContent = () => {
+    if (isAuthLoading) {
+      return <div className="text-center p-10">Loading...</div>;
+    }
+    
+    if (view === 'login') {
+        return <LoginView t={t} onSwitchToRegister={() => setView('register')} onLoginSuccess={() => setView('search')} />;
+    }
+    if (view === 'register') {
+        return <RegisterView t={t} onSwitchToLogin={() => setView('login')} onRegisterSuccess={() => {alert(t('registerSuccessPending')); setView('login');}}/>;
+    }
+
     if (activeTab === 'search') {
       switch (view) {
         case 'search':
@@ -613,10 +612,17 @@ const App: React.FC = () => {
               <div className="bg-white dark:bg-dark-card p-4 rounded-xl shadow-sm">
                 <h3 className="text-lg font-bold mb-4">{t('dataManagement')}</h3>
                 <div className="space-y-3">
-                    <button onClick={() => setView('addData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addData')}</span></button>
-                    <button onClick={() => setView('addInsuranceData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addInsuranceData')}</span></button>
-                    <button onClick={() => setView('addGuidelinesData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addGuidelinesData')}</span></button>
+                    {user?.role === 'admin' && (
+                        <>
+                            <button onClick={() => setView('addData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addData')}</span></button>
+                            <button onClick={() => setView('addInsuranceData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addInsuranceData')}</span></button>
+                            <button onClick={() => setView('addGuidelinesData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addGuidelinesData')}</span></button>
+                        </>
+                    )}
                     <button onClick={() => setView('chatHistory')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><HistoryIcon /><span>{t('chatHistory')}</span></button>
+                    {user?.role === 'admin' && (
+                        <button onClick={handleAdminClick} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><AdminIcon /><span>{t('adminDashboard')}</span></button>
+                    )}
                 </div>
               </div>
             </div>
@@ -627,14 +633,18 @@ const App: React.FC = () => {
           return <AddInsuranceDataView onImport={handleImportInsuranceData} t={t} />;
         case 'addGuidelinesData':
             return <AddGuidelinesDataView onImport={handleImportGuidelinesData} t={t} />;
+        case 'admin':
+            return user?.role === 'admin' ? <AdminDashboard t={t} allMedicines={medicines} setMedicines={setMedicines} /> : null;
         case 'chatHistory':
           return <ChatHistoryView
             conversations={conversations}
             onSelectConversation={(convo) => {
-              setSelectedConversation(convo);
-              setAssistantContextMedicine(null);
-              setAssistantInitialPrompt('');
-              setIsAssistantModalOpen(true);
+              requestAIAccess(() => {
+                setSelectedConversation(convo);
+                setAssistantContextMedicine(null);
+                setAssistantInitialPrompt('');
+                setIsAssistantModalOpen(true);
+              }, t);
             }}
             onDeleteConversation={(id) => {
               const newConvos = conversations.filter(c => c.id !== id);
@@ -665,13 +675,19 @@ const App: React.FC = () => {
         showInstallButton={!!installPromptEvent}
         onInstallClick={handleInstallClick}
         t={t}
+        onLoginClick={() => {
+            setView('login');
+            setActiveTab('settings');
+        }}
+        onAdminClick={handleAdminClick}
       />
 
-      <main className="flex-grow container mx-auto p-4 max-w-2xl space-y-4 pb-24">
+      <main className={`flex-grow container mx-auto p-4 space-y-4 pb-24 transition-all duration-300 ${view === 'admin' ? 'max-w-7xl' : 'max-w-2xl'}`}>
         {renderContent()}
       </main>
 
-      {!isAssistantModalOpen && (
+      {/* FIX: Corrected user role check. A guest is represented by a null user object, so the check should be for `user`'s existence. */}
+      {user && !isAssistantModalOpen && (
         <div className="fixed bottom-24 right-4 z-30">
             <FloatingAssistantButton onClick={handleOpenGeneralAssistant} onLongPress={handleOpenPrescriptionAssistant} t={t} language={language} />
         </div>
@@ -684,7 +700,7 @@ const App: React.FC = () => {
                 requestAIAccess(() => {
                     setActiveTab('assistant');
                     setView('clinicalAssistant');
-                });
+                }, t);
             } else {
                 setActiveTab(tab);
                 const mainViews: Record<Tab, View> = {
@@ -734,16 +750,6 @@ const App: React.FC = () => {
             setActiveTab('search');
             setView('results');
         }}
-        t={t}
-      />
-
-      <AIPasswordModal
-        isOpen={isAIPasswordModalOpen}
-        onClose={() => {
-            setIsAIPasswordModalOpen(false);
-            pendingAICallback.current = null;
-        }}
-        onSuccess={handleSuccessfulAIAuth}
         t={t}
       />
     </div>

@@ -15,7 +15,7 @@ interface InsuranceSearchViewProps {
   setInsuranceSearchTerm: (term: string) => void;
   insuranceSearchMode: InsuranceSearchMode;
   setInsuranceSearchMode: (mode: InsuranceSearchMode) => void;
-  requestAIAccess: (callback: () => void) => void;
+  requestAIAccess: (callback: () => void, t: TFunction) => void;
 }
 
 type Mode = 'simple' | 'ai';
@@ -36,7 +36,7 @@ const InsuranceSearchView: React.FC<InsuranceSearchViewProps> = (props) => {
 
   const handleModeChange = (newMode: Mode) => {
     if (newMode === 'ai') {
-        props.requestAIAccess(() => setMode('ai'));
+        props.requestAIAccess(() => setMode('ai'), props.t);
     } else {
         setMode('simple');
     }
