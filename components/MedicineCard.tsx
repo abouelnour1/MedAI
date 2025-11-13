@@ -104,7 +104,7 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
       tabIndex={0}
       aria-label={t('viewDetails', { name: medicine['Trade Name'] })}
     >
-      <div className="p-4">
+      <div className="p-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-grow min-w-0">
             {medicine['Product type'] === 'Supplement' ? (
@@ -113,13 +113,13 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
                   <FactoryIcon />
                   <span className="truncate" {...rtlTruncateFixProps}>{medicine['Manufacture Name']}</span>
                 </div>
-                <h2 className="text-lg font-bold text-light-text dark:text-dark-text truncate" {...rtlTruncateFixProps}>{medicine['Trade Name']}</h2>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary truncate" {...rtlTruncateFixProps}>{medicine['Scientific Name']}</p>
+                <h2 className="text-base font-bold text-light-text dark:text-dark-text truncate" {...rtlTruncateFixProps}>{medicine['Trade Name']}</h2>
+                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary truncate" {...rtlTruncateFixProps}>{medicine['Scientific Name']}</p>
               </>
             ) : (
               <>
-                <h2 className="text-lg font-bold text-light-text dark:text-dark-text truncate" {...rtlTruncateFixProps}>{medicine['Trade Name']}</h2>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary truncate mb-1" {...rtlTruncateFixProps}>{medicine['Scientific Name']}</p>
+                <h2 className="text-base font-bold text-light-text dark:text-dark-text truncate" {...rtlTruncateFixProps}>{medicine['Trade Name']}</h2>
+                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary truncate mb-1" {...rtlTruncateFixProps}>{medicine['Scientific Name']}</p>
                  <div className="flex items-center gap-1.5 text-xs text-light-text-secondary dark:text-dark-text-secondary">
                     <FactoryIcon />
                     <span className="truncate" {...rtlTruncateFixProps}>{medicine['Manufacture Name']}</span>
@@ -129,8 +129,8 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
           </div>
           <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
             {!isNaN(price) && (
-              <div className="text-accent text-xl font-bold whitespace-nowrap">
-                {price.toFixed(2)} <span className="text-sm font-normal text-light-text-secondary dark:text-dark-text-secondary">{t('sar')}</span>
+              <div className="text-accent text-lg font-bold whitespace-nowrap">
+                {price.toFixed(2)} <span className="text-xs font-normal text-light-text-secondary dark:text-dark-text-secondary">{t('sar')}</span>
               </div>
             )}
             <LegalStatusBadge status={medicine['Legal Status']} size="sm" t={t} />
@@ -141,7 +141,7 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
             )}
           </div>
         </div>
-        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-sm">
+        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 min-w-0">
                 <span className="font-medium text-light-text dark:text-dark-text truncate">
                     {medicine.Strength} {medicine.StrengthUnit}

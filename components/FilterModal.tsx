@@ -56,7 +56,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </header>
 
                 {/* Body */}
-                <div className="flex-grow p-4 overflow-y-auto space-y-4">
+                <div className="flex-grow p-3 space-y-3 overflow-y-auto">
                     <FilterItem icon={<FormIcon />} label={t('filterByPharmaceuticalForm')}>
                       <SearchableDropdown
                         ariaLabel={t('filterByPharmaceuticalForm')}

@@ -100,7 +100,11 @@ const App: React.FC = () => {
     return [...MEDICINE_DATA, ...initialSupplements];
   });
   const [insuranceData, setInsuranceData] = useState<InsuranceDrug[]>(() => {
-    return [...INITIAL_INSURANCE_DATA, ...CUSTOM_INSURANCE_DATA];
+    // Add a unique ID to each insurance item for easier management in the admin panel
+    return [...INITIAL_INSURANCE_DATA, ...CUSTOM_INSURANCE_DATA].map((item, index) => ({
+        ...item,
+        id: `ins-item-${Date.now()}-${index}`
+    }));
   });
   const [clinicalGuidelines, setClinicalGuidelines] = useState<any>(INITIAL_GUIDELINES_DATA);
   
@@ -318,7 +322,7 @@ const App: React.FC = () => {
   };
 
   const handleImportInsuranceData = (data: any[]): void => {
-    const normalizeInsuranceDrug = (item: any): InsuranceDrug => ({ indication: item.INDICATION || '', icd10Code: item['ICD 10 CODE'] || '', drugClass: (item['DRUG PHARMACOLOGICAL CLASS '] || '').trim(), drugSubclass: item['DRUG PHARMACOLOGICAL SUBCLASS'] || '', scientificName: (item['SCIENTIFIC NAME '] || '').trim(), atcCode: (item['ATC CODE'] || '').trim(), form: (item['PHARMACEUTICAL FORM '] || '').trim(), strength: String(item['STRENGTH '] || '').trim(), strengthUnit: (item['STRENGTH UNIT '] || '').trim(), notes: item.NOTES || '', administrationRoute: item['ADMINISTRATION ROUTE'] || '', substitutable: item['SUBSTITUTABLE'] || '', prescribingEdits: item['PRESCRIBING EDITS'] || '', mddAdults: item['MDD ADULTS'] || '', mddPediatrics: item['MDD PEDIATRICS'] || '', appendix: item['APPENDIX'] || '', patientType: item['PATIENT TYPE'] || '', sfdaRegistrationStatus: item['SFDA REGISTRATION STATUS'] || '', });
+    const normalizeInsuranceDrug = (item: any): InsuranceDrug => ({ id: `ins-item-${Date.now()}-${Math.random()}`, indication: item.INDICATION || '', icd10Code: item['ICD 10 CODE'] || '', drugClass: (item['DRUG PHARMACOLOGICAL CLASS '] || '').trim(), drugSubclass: item['DRUG PHARMACOLOGICAL SUBCLASS'] || '', scientificName: (item['SCIENTIFIC NAME '] || '').trim(), atcCode: (item['ATC CODE'] || '').trim(), form: (item['PHARMACEUTICAL FORM '] || '').trim(), strength: String(item['STRENGTH '] || '').trim(), strengthUnit: (item['STRENGTH UNIT '] || '').trim(), notes: item.NOTES || '', administrationRoute: item['ADMINISTRATION ROUTE'] || '', substitutable: item['SUBSTITUTABLE'] || '', prescribingEdits: item['PRESCRIBING EDITS'] || '', mddAdults: item['MDD ADULTS'] || '', mddPediatrics: item['MDD PEDIATRICS'] || '', appendix: item['APPENDIX'] || '', patientType: item['PATIENT TYPE'] || '', sfdaRegistrationStatus: item['SFDA REGISTRATION STATUS'] || '', });
     try { const normalizedData = data.map(normalizeInsuranceDrug); const existingKeys = new Set(insuranceData.map(d => `${d.scientificName}-${d.strength}-${d.form}-${d.indication}`)); const newData = normalizedData.filter(d => { const key = `${d.scientificName}-${d.strength}-${d.form}-${d.indication}`; if (!d.scientificName || existingKeys.has(key)) return false; existingKeys.add(key); return true; }); if (newData.length > 0) setInsuranceData(prevData => [...prevData, ...newData]); setView('settings'); } catch (e) { console.error("Error normalizing insurance data", e); }
   };
   
@@ -634,7 +638,7 @@ const App: React.FC = () => {
         case 'addGuidelinesData':
             return <AddGuidelinesDataView onImport={handleImportGuidelinesData} t={t} />;
         case 'admin':
-            return user?.role === 'admin' ? <AdminDashboard t={t} allMedicines={medicines} setMedicines={setMedicines} /> : null;
+            return user?.role === 'admin' ? <AdminDashboard t={t} allMedicines={medicines} setMedicines={setMedicines} insuranceData={insuranceData} setInsuranceData={setInsuranceData} /> : null;
         case 'chatHistory':
           return <ChatHistoryView
             conversations={conversations}
@@ -665,7 +669,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text min-h-screen flex flex-col">
+    <div className="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text min-h-screen flex flex-col overflow-x-hidden">
       <Header
         title={headerTitle}
         showBack={showBackButton}
@@ -680,9 +684,10 @@ const App: React.FC = () => {
             setActiveTab('settings');
         }}
         onAdminClick={handleAdminClick}
+        view={view}
       />
 
-      <main className={`flex-grow container mx-auto p-4 space-y-4 pb-24 transition-all duration-300 ${view === 'admin' ? 'max-w-7xl' : 'max-w-2xl'}`}>
+      <main className="flex-grow container mx-auto p-4 space-y-4 pb-24 transition-all duration-300 max-w-7xl">
         {renderContent()}
       </main>
 

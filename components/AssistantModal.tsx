@@ -657,7 +657,7 @@ Always answer in the style of an expert, not a general assistant.`;
         </header>
 
         {/* Chat Body */}
-        <div className="flex-grow p-4 overflow-y-auto space-y-4">
+        <div className="flex-grow p-3 space-y-3 overflow-y-auto">
           {!aiAvailable && (
             <div className="text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                 <h3 className="font-bold text-yellow-800 dark:text-yellow-200">{t('aiUnavailableTitle')}</h3>
@@ -720,14 +720,14 @@ Always answer in the style of an expert, not a general assistant.`;
         </div>
 
         {/* Footer / Input */}
-        <footer className="p-4 border-t border-gray-200 dark:border-slate-700 flex-shrink-0">
+        <footer className="p-3 border-t border-gray-200 dark:border-slate-700 flex-shrink-0">
             {contextMedicine && !isPrescriptionMode && aiAvailable && (
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-light-text-secondary dark:text-dark-text-secondary">{t('quickActions')}:</span>
                 <QuickActionButton onClick={() => handleQuickActionClick('price')}>{t('quickActionPrice')}</QuickActionButton>
                 <QuickActionButton onClick={() => handleQuickActionClick('ingredient')}>{t('quickActionIngredient')}</QuickActionButton>
                 <QuickActionButton onClick={() => handleQuickActionClick('alternatives')}>{t('quickActionAlternatives')}</QuickActionButton>
-                <QuickActionButton onClick={() => handleQuickActionClick('usage')}>{t('quickActionUsage')}</QuickActionButton>
+                <QuickActionButton onClick={() => handleQuickActionClick('usage')}>{t('promptUsage')}</QuickActionButton>
               </div>
             )}
             {uploadedImage && (

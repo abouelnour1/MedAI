@@ -31,7 +31,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
 
   return (
-    <div className="bg-light-card dark:bg-dark-card rounded-xl shadow-sm animate-fade-in transition-all duration-300 p-3 space-y-3">
+    <div className="bg-light-card dark:bg-dark-card rounded-xl shadow-sm animate-fade-in transition-all duration-300 p-2 space-y-2">
       {/* Primary Text Search */}
       <div className="relative">
         <label htmlFor="search-term" className="sr-only">
@@ -52,7 +52,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
             }
           }}
           placeholder={t('searchPlaceholder')}
-          className={`w-full bg-transparent py-2 text-base pl-9 pr-16 border-b-2 border-gray-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary outline-none transition-colors`}
+          className={`w-full bg-transparent py-1.5 text-sm pl-9 pr-16 border-b-2 border-gray-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary outline-none transition-colors`}
           aria-label="Search term"
         />
         <div className="absolute top-1/2 right-0 transform -translate-y-1/2 flex items-center">
@@ -80,13 +80,13 @@ const SearchBar: React.FC<SearchBarProps> = ({
        <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 space-x-1 rtl:space-x-reverse">
         <button 
           onClick={() => setTextSearchMode('tradeName')}
-          className={`w-full text-center px-3 py-1.5 text-sm font-semibold rounded-md transition-all duration-300 ${textSearchMode === 'tradeName' ? 'bg-white dark:bg-dark-card shadow-md text-light-text dark:text-dark-text' : 'text-light-text-secondary dark:text-dark-text-secondary'}`}
+          className={`w-full text-center px-3 py-1 text-xs font-semibold rounded-md transition-all duration-300 ${textSearchMode === 'tradeName' ? 'bg-white dark:bg-dark-card shadow-md text-light-text dark:text-dark-text' : 'text-light-text-secondary dark:text-dark-text-secondary'}`}
         >
           {t('tradeName')}
         </button>
         <button 
           onClick={() => setTextSearchMode('scientificName')}
-          className={`w-full text-center px-3 py-1.5 text-sm font-semibold rounded-md transition-all duration-300 ${textSearchMode === 'scientificName' ? 'bg-white dark:bg-dark-card shadow-md text-light-text dark:text-dark-text' : 'text-light-text-secondary dark:text-dark-text-secondary'}`}
+          className={`w-full text-center px-3 py-1 text-xs font-semibold rounded-md transition-all duration-300 ${textSearchMode === 'scientificName' ? 'bg-white dark:bg-dark-card shadow-md text-light-text dark:text-dark-text' : 'text-light-text-secondary dark:text-dark-text-secondary'}`}
         >
           {t('scientificName')}
         </button>

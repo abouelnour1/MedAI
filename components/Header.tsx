@@ -3,7 +3,7 @@ import BackIcon from './icons/BackIcon';
 import SunIcon from './SunIcon';
 import MoonIcon from './MoonIcon';
 import InstallIcon from './icons/InstallIcon';
-import { TFunction } from '../types';
+import { TFunction, View } from '../types';
 import { useAuth } from './auth/AuthContext';
 import AdminIcon from './icons/AdminIcon';
 
@@ -18,14 +18,15 @@ interface HeaderProps {
   t: TFunction;
   onLoginClick: () => void;
   onAdminClick: () => void;
+  view: View;
 }
 
-const Header = forwardRef<HTMLElement, HeaderProps>(({ title, showBack, onBack, theme, toggleTheme, showInstallButton, onInstallClick, t, onLoginClick, onAdminClick }, ref) => {
+const Header = forwardRef<HTMLElement, HeaderProps>(({ title, showBack, onBack, theme, toggleTheme, showInstallButton, onInstallClick, t, onLoginClick, onAdminClick, view }, ref) => {
   const { user, logout } = useAuth();
   
   return (
     <header ref={ref} className="bg-primary text-white sticky top-0 z-20 flex-shrink-0">
-      <div className="container mx-auto px-4 h-16 flex justify-between items-center max-w-2xl">
+      <div className="container mx-auto px-4 h-16 flex justify-between items-center max-w-7xl">
         <div className="flex-1 flex justify-start">
           {showBack && (
             <button
@@ -40,7 +41,7 @@ const Header = forwardRef<HTMLElement, HeaderProps>(({ title, showBack, onBack, 
           )}
         </div>
         
-        <h1 className="text-xl font-bold whitespace-nowrap truncate px-2 text-center flex-shrink">
+        <h1 className="text-lg font-bold whitespace-nowrap truncate px-2 text-center flex-shrink">
           {title}
         </h1>
 
