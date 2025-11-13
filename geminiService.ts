@@ -11,6 +11,7 @@ import { ChatMessage } from '../types';
 // سيقوم الواجهة الأمامية بعد ذلك باستدعاء هذه الدالة بدلاً من استخدام هذه الخدمة مباشرة.
 
 // هذا هو مفتاح API الذي ستحتاج إلى إضافته في إعدادات Vercel
+// FIX: Changed from import.meta.env.VITE_API_KEY to process.env.API_KEY as per Gemini API guidelines to resolve TypeScript error.
 const API_KEY = process.env.API_KEY;
 
 let ai: GoogleGenAI | null = null;

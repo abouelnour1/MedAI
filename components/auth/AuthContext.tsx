@@ -61,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = useCallback(async (username: string, password: string): Promise<void> => {
+    // FIX: Changed from import.meta.env.VITE_APP_ADMIN_PASSWORD to process.env.VITE_APP_ADMIN_PASSWORD to resolve TypeScript error.
     const adminPassword = process.env.VITE_APP_ADMIN_PASSWORD;
     if (username.toLowerCase() === 'admin' && adminPassword && password === adminPassword) {
       const adminUser: User = {

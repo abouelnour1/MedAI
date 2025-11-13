@@ -251,6 +251,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                     <h3 className="font-bold text-lg">{t('apiKey')}</h3>
                     <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-2">{t('apiKeyDescription')}</p>
                     <div className="p-2 bg-white dark:bg-slate-700 rounded font-mono text-sm">
+                        {/* FIX: Changed from import.meta.env.VITE_API_KEY to process.env.API_KEY as per Gemini API guidelines to resolve TypeScript error. */}
                         {process.env.API_KEY ? '****************' + process.env.API_KEY.slice(-4) : 'Not Set'}
                     </div>
                 </div>
