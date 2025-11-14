@@ -1,3 +1,6 @@
+// FIX: Add Vite client types to fix TypeScript error for import.meta.env
+/// <reference types="vite/client" />
+
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { User, AuthContextType, AppSettings, TFunction } from '../../types';
 
@@ -61,8 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = useCallback(async (username: string, password: string): Promise<void> => {
-    // @ts-ignore
-    const adminPassword = process.env.VITE_APP_ADMIN_PASSWORD;
+    const adminPassword = import.meta.env.VITE_APP_ADMIN_PASSWORD;
 
     if (username.toLowerCase() === 'admin') {
       if (adminPassword && password === adminPassword) {

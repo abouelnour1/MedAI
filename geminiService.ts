@@ -10,7 +10,8 @@ import { ChatMessage } from '../types';
 // The frontend would then call this function instead of using this service directly.
 
 const getApiKey = (): string | undefined => {
-  return process.env.GEMINI_API_KEY || process.env.API_KEY;
+  // FIX: Adhere to the guideline of using process.env.API_KEY for the Gemini API key.
+  return process.env.API_KEY;
 }
 
 export const isAIAvailable = (): boolean => {

@@ -349,7 +349,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                     <h3 className="font-bold text-lg">{t('apiKey')}</h3>
                     <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-2">{t('apiKeyDescription')}</p>
                     <div className="p-2 bg-white dark:bg-slate-700 rounded font-mono text-sm">
-                        {process.env.API_KEY ? '****************' + process.env.API_KEY.slice(-4) : 'Not Set'}
+                        {/* FIX: Use process.env.API_KEY to be consistent with Gemini API guidelines. */}
+                        {process.env.API_KEY ? '****************' + String(process.env.API_KEY).slice(-4) : 'Not Set'}
                     </div>
                 </div>
             </div>
