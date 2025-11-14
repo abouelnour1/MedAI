@@ -759,13 +759,13 @@ const App: React.FC = () => {
         view={view}
       />
 
-      <main className="flex-grow container mx-auto p-4 space-y-4 pb-[calc(6rem+env(safe-area-inset-bottom))] transition-all duration-300 max-w-7xl">
+      <main className="flex-grow container mx-auto p-4 space-y-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] transition-all duration-300 max-w-7xl">
         {renderContent()}
       </main>
 
       {/* FIX: Corrected user role check. A guest is represented by a null user object, so the check should be for `user`'s existence. */}
       {user && !isAssistantModalOpen && (
-        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-30">
+        <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-30">
             <FloatingAssistantButton onClick={handleOpenGeneralAssistant} onLongPress={handleOpenPrescriptionAssistant} t={t} language={language} />
         </div>
       )}
