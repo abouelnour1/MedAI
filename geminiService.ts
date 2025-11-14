@@ -9,17 +9,21 @@ import { ChatMessage } from '../types';
 // the API key is not exposed on the client-side browser.
 // The frontend would then call this function instead of using this service directly.
 
-const API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY;
-
-
-let ai: GoogleGenAI | null = null;
-if (API_KEY) {
-  ai = new GoogleGenAI({ apiKey: API_KEY });
+const getApiKey = (): string | undefined => {
+  return process.env.GEMINI_API_KEY || process.env.API_KEY;
 }
 
 export const isAIAvailable = (): boolean => {
-  return !!ai;
+  return !!getApiKey();
 };
+
+const getAiClient = (): GoogleGenAI => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        throw new Error('AI service is not available. API_KEY is missing.');
+    }
+    return new GoogleGenAI({ apiKey });
+}
 
 // General-purpose AI chat function
 export const runAIChat = async (
@@ -28,9 +32,7 @@ export const runAIChat = async (
   tools: Tool[],
   toolImplementations: { [key:string]: (...args: any[]) => any }
 ): Promise<GenerateContentResponse> => {
-  if (!ai) {
-    throw new Error('AI service is not available. API_KEY is missing.');
-  }
+  const ai = getAiClient();
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-pro',
