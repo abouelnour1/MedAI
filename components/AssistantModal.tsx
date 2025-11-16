@@ -41,7 +41,7 @@ const parseRecommendations = (text: string): { recommendations: Recommendation[]
   const recommendationRegex = /<recommendation>([\s\S]*?)<\/recommendation>/g;
   
   const extractField = (content: string, field: string): string => {
-    const regex = new RegExp(`<${field}>([\\s\S]*?)<\\/${field}>`);
+    const regex = new RegExp(`<${field}>([\\s\\S]*?)<\\/${field}>`);
     const match = content.match(regex);
     return match ? match[1].trim() : '';
   };
@@ -554,7 +554,7 @@ When asked about a drug for a specific condition (e.g., cholesterol), you must c
         const toolImplementations = { searchDatabase };
         const tools: Tool[] = isPrescriptionMode 
             ? [{ functionDeclarations: [searchDatabaseTool] }] 
-            : [{ googleSearch: {} }, { functionDeclarations: [searchDatabaseTool] }];
+            : [{ googleSearch: {}, functionDeclarations: [searchDatabaseTool] }];
         const finalResponse = await runAIChat(newHistory, systemInstruction, tools, toolImplementations, 'gemini-2.5-flash');
         const responsePartsFromApi = finalResponse?.candidates?.[0]?.content?.parts;
 

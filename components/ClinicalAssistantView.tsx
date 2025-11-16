@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { FunctionDeclaration, Type, Part } from '@google/genai';
+import { FunctionDeclaration, Type, Part, Tool } from '@google/genai';
 import { Medicine, TFunction, Language, ChatMessage, PrescriptionData, InsuranceDrug } from '../types';
 import StethoscopeIcon from './icons/StethoscopeIcon';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -141,7 +141,7 @@ You have access to two powerful tools:
 
 **Tone:** Professional, evidence-based, and concise. Address the user as a fellow healthcare professional.`;
 
-        const tools = [{ googleSearch: {} }, { functionDeclarations: [searchDatabaseTool] }];
+        const tools: Tool[] = [{ googleSearch: {}, functionDeclarations: [searchDatabaseTool] }];
         const toolImplementations = { searchDatabase };
 
         const finalResponse = await runAIChat(newHistory, systemInstruction, tools, toolImplementations, 'gemini-2.5-pro');
