@@ -394,23 +394,38 @@ const App: React.FC = () => {
             }
             case 'alphabetical':
             default: {
-                if (!lowerSearchTerm) return a['Trade Name'].localeCompare(b['Trade Name']);
-                
-                // Skip relevance scoring for wildcard searches, as it's not applicable
-                if (useRegex) {
+                if (!lowerSearchTerm) {
                     return a['Trade Name'].localeCompare(b['Trade Name']);
                 }
-
+    
                 const aTradeName = String(a['Trade Name']).toLowerCase();
                 const bTradeName = String(b['Trade Name']).toLowerCase();
                 const aSciName = String(a['Scientific Name']).toLowerCase();
                 const bSciName = String(b['Scientific Name']).toLowerCase();
-                let scoreA = 0, scoreB = 0;
                 const targetFieldA = textSearchMode === 'scientificName' ? aSciName : aTradeName;
                 const targetFieldB = textSearchMode === 'scientificName' ? bSciName : bTradeName;
-                if (targetFieldA.startsWith(lowerSearchTerm)) scoreA = 2; else if (targetFieldA.includes(lowerSearchTerm)) scoreA = 1;
-                if (targetFieldB.startsWith(lowerSearchTerm)) scoreB = 2; else if (targetFieldB.includes(lowerSearchTerm)) scoreB = 1;
-                if (scoreA !== scoreB) return scoreB - scoreA;
+    
+                let scoreA = 0;
+                let scoreB = 0;
+    
+                const isPrefixIntent = !lowerSearchTerm.startsWith('%');
+                const termForPrefixMatch = lowerSearchTerm.split('%')[0];
+    
+                if (isPrefixIntent && termForPrefixMatch) {
+                    // For "ce" and "ce%", prioritize results starting with "ce".
+                    if (targetFieldA.startsWith(termForPrefixMatch)) scoreA = 2; else scoreA = 1;
+                    if (targetFieldB.startsWith(termForPrefixMatch)) scoreB = 2; else scoreB = 1;
+                } else {
+                    // For "%ce", all results that match the filter are considered equal.
+                    scoreA = 1;
+                    scoreB = 1;
+                }
+    
+                if (scoreA !== scoreB) {
+                    return scoreB - scoreA;
+                }
+    
+                // Fallback to alphabetical for items with the same score.
                 return a['Trade Name'].localeCompare(b['Trade Name']);
             }
         }
