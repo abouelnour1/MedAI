@@ -327,6 +327,20 @@ const App: React.FC = () => {
 
     const searchTermIsLongEnough = searchTerm.trim().length >= 3 || (forceSearch && searchTerm.trim().length > 0);
     const lowerSearchTerm = searchTerm.toLowerCase().trim();
+    const useRegex = lowerSearchTerm.includes('%');
+    let searchRegex: RegExp | null = null;
+    
+    if (useRegex) {
+      // Escape special regex characters to prevent errors
+      const escapedTerm = lowerSearchTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      // Replace our user-friendly wildcard with the regex wildcard
+      const regexString = escapedTerm.replace(/%/g, '.*');
+      try {
+        searchRegex = new RegExp(regexString, 'i');
+      } catch (e) {
+        console.error("Invalid Regex from search", e);
+      }
+    }
 
     const filtered = medicines.filter(med => {
       if (filters.productType === 'medicine' && med['Product type'] !== 'Human') return false;
@@ -340,10 +354,20 @@ const App: React.FC = () => {
       if (filters.manufactureName.length > 0 && !filters.manufactureName.includes(med['Manufacture Name'])) return false;
       if (filters.legalStatus && med['Legal Status'] !== filters.legalStatus) return false;
       if (searchTermIsLongEnough) {
-        const tradeName = String(med['Trade Name']).toLowerCase();
-        const scientificName = String(med['Scientific Name']).toLowerCase();
-        const tradeNameMatch = tradeName.includes(lowerSearchTerm);
-        const scientificNameMatch = scientificName.includes(lowerSearchTerm);
+        const tradeName = String(med['Trade Name']);
+        const scientificName = String(med['Scientific Name']);
+        
+        let tradeNameMatch = false;
+        let scientificNameMatch = false;
+
+        if (searchRegex) {
+            tradeNameMatch = searchRegex.test(tradeName);
+            scientificNameMatch = searchRegex.test(scientificName);
+        } else {
+            tradeNameMatch = tradeName.toLowerCase().includes(lowerSearchTerm);
+            scientificNameMatch = scientificName.toLowerCase().includes(lowerSearchTerm);
+        }
+
         if (textSearchMode === 'tradeName' && !tradeNameMatch) return false;
         if (textSearchMode === 'scientificName' && !scientificNameMatch) return false;
         if (textSearchMode === 'all' && !tradeNameMatch && !scientificNameMatch) return false;
@@ -371,6 +395,12 @@ const App: React.FC = () => {
             case 'alphabetical':
             default: {
                 if (!lowerSearchTerm) return a['Trade Name'].localeCompare(b['Trade Name']);
+                
+                // Skip relevance scoring for wildcard searches, as it's not applicable
+                if (useRegex) {
+                    return a['Trade Name'].localeCompare(b['Trade Name']);
+                }
+
                 const aTradeName = String(a['Trade Name']).toLowerCase();
                 const bTradeName = String(b['Trade Name']).toLowerCase();
                 const aSciName = String(a['Scientific Name']).toLowerCase();

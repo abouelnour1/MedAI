@@ -281,7 +281,21 @@ export const translations = {
     productType: 'نوع المنتج',
     humanProduct: 'دواء بشري',
     supplementProduct: 'مكمل غذائي',
-    searchInsurancePlaceholder: 'ابحث بالتشخيص أو المادة الفعالة...'
+    searchInsurancePlaceholder: 'ابحث بالتشخيص أو المادة الفعالة...',
+    sessionAdminPassword: 'كلمة مرور مسؤول مؤقتة',
+    sessionAdminPasswordPlaceholder: 'أدخل أي كلمة مرور للجلسة الحالية',
+    favorites: 'المفضلة',
+    addToFavorites: 'إضافة إلى المفضلة',
+    removeFromFavorites: 'إزالة من المفضلة',
+    noFavorites: 'لا توجد عناصر في المفضلة.',
+    noFavoritesSubtitle: 'أضف الأدوية التي تستخدمها كثيراً للوصول السريع.',
+    favoriteProducts: 'المنتجات المفضلة',
+    recommendation: 'اقتراح إضافي',
+    rationale: 'الأسباب والمبررات',
+    suggestedProducts: 'المنتجات المقترحة',
+    sellingPoint: 'نقطة التميز',
+    adminPasswordNotNeeded: 'كلمة المرور غير مطلوبة للمشرف.',
+    wildcardSearchHint: 'نصيحة: استخدم علامة % كحرف بدل للبحث المتقدم (مثال: ce%um).'
   },
   en: {
     appTitle: 'Saudi Drug Directory',
@@ -565,7 +579,21 @@ export const translations = {
     productType: 'Product Type',
     humanProduct: 'Human Medicine',
     supplementProduct: 'Supplement',
-    searchInsurancePlaceholder: 'Search by indication or ingredient...'
+    searchInsurancePlaceholder: 'Search by indication or ingredient...',
+    sessionAdminPassword: 'Session Admin Password',
+    sessionAdminPasswordPlaceholder: 'Enter any password for this session',
+    favorites: 'Favorites',
+    addToFavorites: 'Add to Favorites',
+    removeFromFavorites: 'Remove from Favorites',
+    noFavorites: 'No favorites found.',
+    noFavoritesSubtitle: 'Add your most-used medicines for quick access.',
+    favoriteProducts: 'Favorite Products',
+    recommendation: 'Additional Suggestion',
+    rationale: 'Rationale & Justification',
+    suggestedProducts: 'Suggested Products',
+    sellingPoint: 'Selling Point',
+    adminPasswordNotNeeded: 'Password not required for admin.',
+    wildcardSearchHint: 'Tip: Use the % symbol as a wildcard for advanced search (e.g., ce%um).'
   }
 };
 

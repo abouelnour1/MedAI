@@ -1,7 +1,10 @@
 
 
+
+
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { FunctionDeclaration, Type, Part, Tool } from '@google/genai';
+import { FunctionDeclaration, Type, Part, Tool, GenerateContentResponse } from '@google/genai';
 import { Medicine, TFunction, Language, ChatMessage, Recommendation, ProductSuggestion } from '../types';
 import { TranslationKeys } from '../translations';
 import AssistantIcon from './icons/AssistantIcon';
@@ -383,9 +386,10 @@ const AssistantModal: React.FC<AssistantModalProps> = ({ isOpen, onSaveAndClose,
     let systemInstructionAr = `أنت صيدلي سريري وخبير مبيعات صيدلانية من الطراز الرفيع، وتعمل في المملكة العربية السعودية. جمهورك هو الصيادلة المحترفون الآخرون. هدفك الأساسي هو تقديم استشارات بيع عملية وقائمة على الأدلة، مع الحفاظ على أعلى المعايير السريرية.
 
 **القواعد الإلزامية المطلقة (يجب اتباعها بدقة):**
-1.  **الأولوية القصوى للمفضلة:** قبل أي شيء آخر، عند اقتراح اسم تجاري، **يجب** عليك إعطاء الأولوية المطلقة للمنتجات من قائمة "الأدوية المفضلة للمستخدم" إذا كانت مناسبة سريريًا. هذه هي القاعدة الأهم.
+1.  **الأولوية القصوى للمفضلة:** عند اقتراح اسم تجاري، **يجب** عليك إعطاء الأولوية للمنتجات من قائمة "الأدوية المفضلة للمستخدم" إذا كانت مناسبة سريريًا.
     -   **قائمة الأدوية المفضلة للمستخدم:**\n${favoriteMedicinesListAr}
-2.  **الاعتماد الحصري على قاعدة البيانات:** لديك وصول إلى قاعدة بيانات عبر أداة \`searchDatabase\`. **ممنوع منعاً باتاً** اقتراح أي اسم تجاري أو منتج لم يتم العثور عليه صراحةً عبر هذه الأداة. **يجب** عليك استخدام الأداة لكل منتج تقترحه للتحقق من وجوده. لا تخترع منتجات.
+    -   استخدم هذه القائمة **لتوجيه بحثك** في أداة \`searchDatabase\`. لا تذكر أي تفاصيل (مثل السعر أو التركيز) لم يتم تأكيدها عبر استدعاء الأداة.
+2.  **الاعتماد الحصري والإجباري على قاعدة البيانات:** معرفتك الداخلية بالأسماء التجارية **معطلة تمامًا**. الطريقة **الوحيدة** لمعرفة أو اقتراح أي اسم تجاري هي عبر استدعاء أداة \`searchDatabase\`. **ممنوع منعًا باتًا** ذكر أي اسم تجاري من ذاكرتك أو تدريبك. **كل اسم تجاري تقترحه يجب أن يكون نتيجة مباشرة لاستدعاء الأداة**. إذا لم تعثر الأداة على أي منتجات، **يجب** عليك ذكر المادة الفعالة فقط وتوضيح عدم توفر منتجات لها في قاعدة البيانات. **لا تخترع منتجات تحت أي ظرف من الظروف.**
 3.  **دقة السعر:** عند استدعاء السعر من قاعدة البيانات، ستحصل عليه كرقم. **مهمتك هي عرض الرقم فقط**. إذا كان السعر غير متوفر في قاعدة البيانات، اكتب "N/A" بالضبط. لا تخترع أسعارًا أبدًا.
 4.  **المصطلحات العلمية:** استخدم دائمًا المصطلحات الطبية والصيدلانية الإنجليزية (Medical/Pharmacological Terminology) لضمان الدقة والاحترافية، حتى عند الإجابة باللغة العربية.
 5.  **حدود المعرفة:** ليس لديك وصول مباشر إلى الإنترنت. أجب على الأسئلة السريرية بناءً على معرفتك التدريبية الواسعة.
@@ -402,7 +406,11 @@ const AssistantModal: React.FC<AssistantModalProps> = ({ isOpen, onSaveAndClose,
       <name>[الاسم التجاري من قاعدة البيانات]</name>
       <concentration>[التركيز من قاعدة البيانات]</concentration>
       <price>[السعر كرقم فقط من قاعدة البيانات، أو "N/A"]</price>
-      <selling_point>[خطاب بيع فريد ومقنع: اشرح لماذا هذا المنتج مميز عن المنافسين وكيف يمكن للصيدلي تسويقه بفعالية. قدم نقاطًا واضحة.]</selling_point>
+      <selling_point><![CDATA[
+- **الاستهداف المباشر:** يمكنك تسويقه كحل استباقي لآلام العضلات المصاحبة للـ Statin.
+- **تحسين الالتزام:** عندما يشعر المريض بأنك تهتم بأعراضه، يزداد التزامه بالعلاج الأساسي.
+- **خطاب البيع المقترح:** "بينما يعمل دوائك على خفض الكوليسترول، قد تلاحظ بعض الإرهاق العضلي. هذا المكمل يدعم طاقة العضلات وقد يساعد في تقليل هذا الشعور."
+]]></selling_point>
     </product>
     <!-- ابحث في قاعدة البيانات عن منتجات متعددة ومناسبة وأضفها هنا -->
   </products>
@@ -412,15 +420,16 @@ const AssistantModal: React.FC<AssistantModalProps> = ({ isOpen, onSaveAndClose,
 **قواعد البيع الذكي:**
 -   **البيع المتقاطع (Cross-Selling):** ابحث في قاعدة البيانات عن **عدة مكملات غذائية/أعشاب** مناسبة وذات صلة. قدم مبررًا علميًا لكل اقتراح (مثلاً: "CoQ10 لتقليل الآلام العضلية المرتبطة بـ Statins").
 -   **البيع الأعلى (Upselling):** اقترح بديلاً أكثر تطورًا (مثلاً: تركيبة مدمجة لتحسين الالتزام، أو شكل صيدلاني أحدث).
--   **خطاب البيع الفريد (Selling Point):** حوّل هذا الحقل من مجرد نقطة إلى خطاب بيع مصغر. يجب أن يجيب على: "لماذا يجب أن أبيع هذا المنتج بدلاً من غيره؟" و "ما هي مميزاته التنافسية؟".`;
+-   **خطاب البيع الفريد (Selling Point):** حوّل هذا الحقل من مجرد نقطة إلى خطاب بيع مصغر. يجب أن يجيب على: "لماذا يجب أن أبيع هذا المنتج بدلاً من غيره؟" و "ما هي مميزاته التنافسية؟". استخدم Markdown (مثل **النص العريض** والقوائم النقطية) للتنسيق.`;
 
 
     let systemInstructionEn = `You are an expert-level clinical pharmacist and an elite pharmacy salesperson, operating in Saudi Arabia. Your audience is exclusively other healthcare professionals (pharmacists). Your primary goal is to provide practical, evidence-based sales advice, including upselling and cross-selling, while maintaining the highest clinical standards.
 
 **Absolute Mandatory Rules (Must be followed strictly):**
-1.  **Top Priority for Favorites:** Before anything else, when suggesting a trade name, you **MUST** give absolute priority to products from the "User's Favorite Medicines List" if they are clinically suitable. This is the most important rule.
+1.  **Top Priority for Favorites:** When suggesting a trade name, you **MUST** give priority to products from the "User's Favorite Medicines List" if they are clinically suitable.
     -   **User's Favorite Medicines List:**\n${favoriteMedicinesListEn}
-2.  **Exclusive Reliance on Database:** You have access to a database via the \`searchDatabase\` tool. It is **strictly forbidden** to suggest any trade name or product not explicitly found through this tool. You **MUST** use the tool for every product you suggest to verify its existence. Do not hallucinate products.
+    -   Use this list to **guide your search query** in the \`searchDatabase\` tool. Do not mention any details (like price or concentration) that have not been confirmed by a tool call.
+2.  **Mandatory and Exclusive Reliance on the Database:** Your internal knowledge of trade names is **completely disabled**. The **only** way for you to know or suggest a trade name is by calling the \`searchDatabase\` tool. It is **strictly forbidden** to mention any trade name from your memory or training data. **Every single trade name you suggest must be a direct result of a tool call**. If the tool returns no products, you **MUST** state only the active ingredient and mention that no products were found in the database. **Do not invent products under any circumstances.**
 3.  **Price Accuracy:** When retrieving the price from the database, you will get it as a number. **Your job is to output only the number**. If the price is not available in the database, write exactly "N/A". Never invent prices.
 4.  **Scientific Terminology:** Always use English medical and pharmacological terminology to ensure accuracy and professionalism.
 5.  **Knowledge Limitation:** You do not have live access to the internet. Answer clinical questions based on your extensive training knowledge.
@@ -437,7 +446,11 @@ When asked about a drug for a specific condition, use the following XML structur
       <name>[Trade Name from database]</name>
       <concentration>[Concentration from database]</concentration>
       <price>[Price as a number only from database, or "N/A"]</price>
-      <selling_point>[Unique Sales Pitch: Explain why this product is special compared to competitors and how a pharmacist can effectively market it. Provide clear points.]</selling_point>
+      <selling_point><![CDATA[
+- **Directly addresses side effects:** Market this as a proactive solution for statin-associated muscle pain.
+- **Improves adherence:** When the patient feels you are addressing their concerns, their adherence to the primary therapy improves.
+- **Suggested Sales Pitch:** "While your main medication lowers cholesterol, some patients feel muscle fatigue. This supplement supports muscle energy and may help reduce that feeling."
+]]></selling_point>
     </product>
     <!-- Search the database for multiple suitable products and add them here -->
   </products>
@@ -447,7 +460,7 @@ When asked about a drug for a specific condition, use the following XML structur
 **Smart Sales Rules:**
 -   **Cross-Selling:** Search the database for **multiple** relevant and suitable **supplements/herbals**. Provide a scientific rationale for each suggestion (e.g., "CoQ10 to mitigate statin-associated muscle symptoms").
 -   **Upselling:** Suggest a more advanced alternative (e.g., a combination product for better compliance, a newer dosage form).
--   **Unique Sales Pitch (Selling Point):** Elevate this field from a mere point to a mini sales pitch. It should answer: "Why should I sell this over others?" and "What are its competitive advantages?".`;
+-   **Unique Sales Pitch (Selling Point):** Elevate this field from a mere point to a mini sales pitch. It should answer: "Why should I sell this over others?" and "What are its competitive advantages?". Use Markdown (like **bold text** and bulleted lists) for formatting.`;
 
 
     const prescriptionSystemInstructionAr = `أنت مساعد ذكاء اصطناعي تقوم بدور طبيب في المملكة العربية السعودية، ومهمتك هي إنشاء وصفة طبية رسمية بتنسيق JSON.
@@ -549,14 +562,21 @@ When asked about a drug for a specific condition, use the following XML structur
         const toolImplementations = { searchDatabase };
         const tools: Tool[] = [{ functionDeclarations: [searchDatabaseTool] }];
         const finalResponse = await runAIChat(newHistory, systemInstruction, tools, toolImplementations, 'gemini-2.5-flash');
+        
         const responsePartsFromApi = finalResponse?.candidates?.[0]?.content?.parts;
 
         if (responsePartsFromApi && responsePartsFromApi.length > 0) {
             const responseParts = [...responsePartsFromApi];
             setChatHistory(prev => [...prev, { role: 'model', parts: responseParts }]);
         } else {
-            console.error("AI response is missing parts:", finalResponse);
-            setChatHistory(prev => [...prev, { role: 'model', parts: [{text: t('geminiError')}] }]);
+            let errorMessage = t('geminiError');
+            if (finalResponse?.promptFeedback?.blockReason) {
+                errorMessage = `Request blocked: ${finalResponse.promptFeedback.blockReason}`;
+            } else if (!finalResponse.text && (!finalResponse.candidates || finalResponse.candidates.length === 0)) {
+                errorMessage = t('noResultsFromAI');
+            }
+            console.error("AI response was empty or blocked. Full response:", finalResponse);
+            setChatHistory(prev => [...prev, { role: 'model', parts: [{text: errorMessage}] }]);
         }
     } catch (err) {
       console.error("AI service error:", err);
@@ -691,10 +711,11 @@ When asked about a drug for a specific condition, use the following XML structur
     }
   };
 
-  const QuickActionButton: React.FC<{onClick: () => void, children: React.ReactNode}> = ({ onClick, children }) => (
+  const QuickActionButton: React.FC<{onClick: () => void, children: React.ReactNode, disabled?: boolean}> = ({ onClick, children, disabled }) => (
     <button
         onClick={onClick}
-        className="px-3 py-1.5 text-xs font-semibold rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-light-text dark:text-dark-text transition-colors"
+        disabled={disabled}
+        className="px-3 py-1.5 text-xs font-semibold rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-light-text dark:text-dark-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
         {children}
     </button>
@@ -791,7 +812,7 @@ When asked about a drug for a specific condition, use the following XML structur
                 <QuickActionButton onClick={() => handleQuickActionClick('usage')}>{t('promptUsage')}</QuickActionButton>
                 <QuickActionButton onClick={() => handleQuickActionClick('sellingPoint')}>{t('quickActionSellingPoint')}</QuickActionButton>
                 <QuickActionButton onClick={() => handleQuickActionClick('howToSell')}>{t('quickActionHowToSell')}</QuickActionButton>
-                <QuickActionButton onClick={() => handleQuickActionClick('upselling')}>{t('quickActionUpselling')}</QuickActionButton>
+                <QuickActionButton onClick={() => handleQuickActionClick('upselling')} disabled={contextMedicine['Product type'] === 'Human'}>{t('quickActionUpselling')}</QuickActionButton>
                 <QuickActionButton onClick={() => handleQuickActionClick('crossSelling')}>{t('quickActionCrossSelling')}</QuickActionButton>
               </div>
             )}

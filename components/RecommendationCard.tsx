@@ -1,5 +1,6 @@
 import React from 'react';
 import { TFunction, Recommendation, ProductSuggestion } from '../types';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface RecommendationCardProps {
   recommendation: Recommendation;
@@ -34,7 +35,10 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommendation,
                 )}
               </div>
               <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-600">
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary"><strong className="font-semibold text-light-text dark:text-dark-text">{t('sellingPoint')}: </strong>{product.selling_point}</p>
+                  <div className="text-xs text-light-text-secondary dark:text-dark-text-secondary ai-response-content">
+                    <strong className="font-semibold text-light-text dark:text-dark-text block mb-1">{t('sellingPoint')}: </strong>
+                    <MarkdownRenderer content={product.selling_point} />
+                  </div>
               </div>
             </div>
           ))}
