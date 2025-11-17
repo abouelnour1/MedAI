@@ -65,9 +65,24 @@ export interface InsuranceDrug {
   sfdaRegistrationStatus?: string;
 }
 
+export interface Cosmetic {
+  id: string;
+  BrandName: string;
+  SpecificName: string;
+  SpecificNameAr: string;
+  FirstSubCategoryAr: string;
+  FirstSubCategoryEn: string;
+  SecondSubCategoryAr: string;
+  SecondSubCategoryEn: string;
+  manufacturerNameEn: string;
+  manufacturerCountryAr: string;
+  manufacturerCountryEn: string;
+  "Active ingredient": string;
+}
+
 export type ProductTypeFilter = 'all' | 'medicine' | 'supplement';
 
-export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addGuidelinesData' | 'clinicalAssistant' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites';
+export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addCosmeticsData' | 'cosmeticsSearch' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites';
 
 export type TextSearchMode = 'tradeName' | 'scientificName' | 'all';
 
@@ -85,7 +100,7 @@ export interface Filters {
 export type Language = 'ar' | 'en';
 export type TFunction = (key: TranslationKeys, replacements?: { [key: string]: string | number }) => string;
 
-export type Tab = 'search' | 'insurance' | 'prescriptions' | 'assistant' | 'settings';
+export type Tab = 'search' | 'insurance' | 'prescriptions' | 'cosmetics' | 'settings';
 
 export type SortByOption = 'alphabetical' | 'scientificName' | 'priceAsc' | 'priceDesc';
 
@@ -162,6 +177,7 @@ export interface User {
 
 export interface AppSettings {
   aiRequestLimit: number;
+  isAiEnabled: boolean;
 }
 
 export type AuthContextType = {

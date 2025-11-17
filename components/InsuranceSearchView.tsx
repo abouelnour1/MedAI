@@ -4,6 +4,7 @@ import InsuranceSimpleSearch from './InsuranceSimpleSearch';
 import InsuranceAiGuide from './InsuranceAiGuide';
 import SearchIcon from './icons/SearchIcon';
 import SparkleIcon from './icons/SparkleIcon';
+import { isAIAvailable } from '../geminiService';
 
 interface InsuranceSearchViewProps {
   t: TFunction;
@@ -36,6 +37,10 @@ const InsuranceSearchView: React.FC<InsuranceSearchViewProps> = (props) => {
 
   const handleModeChange = (newMode: Mode) => {
     if (newMode === 'ai') {
+        if (!isAIAvailable()) {
+            alert(props.t('aiUnavailableMessage'));
+            return;
+        }
         props.requestAIAccess(() => setMode('ai'), props.t);
     } else {
         setMode('simple');

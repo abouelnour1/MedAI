@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Medicine, View, Filters, TextSearchMode, Language, TFunction, Tab, SortByOption, Conversation, ChatMessage, InsuranceDrug, PrescriptionData, SelectedInsuranceData, InsuranceSearchMode } from './types';
+import { Medicine, View, Filters, TextSearchMode, Language, TFunction, Tab, SortByOption, Conversation, ChatMessage, InsuranceDrug, PrescriptionData, SelectedInsuranceData, InsuranceSearchMode, Cosmetic } from './types';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import ResultsList from './components/ResultsList';
@@ -9,7 +9,7 @@ import AddDataView from './components/AddDataView';
 import { MEDICINE_DATA, SUPPLEMENT_DATA_RAW } from './data/data';
 import { INITIAL_INSURANCE_DATA } from './data/insurance-data';
 import { CUSTOM_INSURANCE_DATA } from './data/custom-insurance-data';
-import { INITIAL_GUIDELINES_DATA } from './data/guidelines-data';
+import { INITIAL_COSMETICS_DATA } from './data/cosmetics-data';
 import MedicineDetail from './components/MedicineDetail';
 import { translations, TranslationKeys } from './translations';
 import FloatingAssistantButton from './components/FloatingAssistantButton';
@@ -25,8 +25,8 @@ import HistoryIcon from './components/icons/HistoryIcon';
 import ChatHistoryView from './components/ChatHistoryView';
 import InsuranceSearchView from './components/InsuranceSearchView';
 import AddInsuranceDataView from './components/AddInsuranceDataView';
-import AddGuidelinesDataView from './components/AddGuidelinesDataView';
-import ClinicalAssistantView from './components/ClinicalAssistantView';
+import AddCosmeticsDataView from './components/AddCosmeticsDataView';
+import CosmeticsView from './components/CosmeticsView';
 import PrescriptionListView from './components/PrescriptionListView';
 import PrescriptionView from './components/PrescriptionView';
 import BarcodeScannerModal from './components/BarcodeScannerModal';
@@ -38,6 +38,7 @@ import { AdminDashboard } from './components/auth/AdminDashboard';
 import AdminIcon from './components/icons/AdminIcon';
 import StarIcon from './components/icons/StarIcon';
 import FavoritesView from './components/FavoritesView';
+import { isAIAvailable } from './geminiService';
 
 const normalizeProduct = (product: any): Medicine => {
   let productType = product['Product type'];
@@ -95,6 +96,7 @@ const normalizeProduct = (product: any): Medicine => {
 };
 
 const INSURANCE_STORAGE_KEY = 'saudi_drug_directory_insurance';
+const COSMETICS_STORAGE_KEY = 'saudi_drug_directory_cosmetics';
 const FAVORITES_STORAGE_KEY = 'saudi_drug_directory_favorites';
 
 const App: React.FC = () => {
@@ -102,6 +104,7 @@ const App: React.FC = () => {
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [insuranceData, setInsuranceData] = useState<InsuranceDrug[]>([]);
+  const [cosmetics, setCosmetics] = useState<Cosmetic[]>([]);
   
   useEffect(() => {
     // Load medicines from static data. User-added data will be session-only to avoid localStorage quota issues.
@@ -129,6 +132,19 @@ const App: React.FC = () => {
         const initialData = [...INITIAL_INSURANCE_DATA, ...CUSTOM_INSURANCE_DATA].map((item, index) => ({ ...item, id: `ins-item-${Date.now()}-${index}` }));
         setInsuranceData(initialData);
     }
+    
+    // Load cosmetics data
+    try {
+      const storedCosmetics = localStorage.getItem(COSMETICS_STORAGE_KEY);
+      if (storedCosmetics) {
+        setCosmetics(JSON.parse(storedCosmetics));
+      } else {
+        setCosmetics(INITIAL_COSMETICS_DATA);
+      }
+    } catch(e) {
+      console.error("Failed to load cosmetics data, falling back to static.", e);
+      setCosmetics(INITIAL_COSMETICS_DATA);
+    }
   }, []);
 
   useEffect(() => {
@@ -140,8 +156,16 @@ const App: React.FC = () => {
         }
     }
   }, [insuranceData]);
-  
-  const [clinicalGuidelines, setClinicalGuidelines] = useState<any>(INITIAL_GUIDELINES_DATA);
+
+  useEffect(() => {
+    if (cosmetics.length > 0) {
+        try {
+            localStorage.setItem(COSMETICS_STORAGE_KEY, JSON.stringify(cosmetics));
+        } catch (e) {
+            console.error("Failed to save cosmetics data to localStorage", e);
+        }
+    }
+  }, [cosmetics]);
   
   const [activeTab, setActiveTab] = useState<Tab>('search');
   const [view, setView] = useState<View>('search');
@@ -177,8 +201,6 @@ const App: React.FC = () => {
 
   const [prescriptions, setPrescriptions] = useState<PrescriptionData[]>([]);
   const [selectedPrescription, setSelectedPrescription] = useState<PrescriptionData | null>(null);
-
-  const [clinicalAssistantChatHistory, setClinicalAssistantChatHistory] = useState<ChatMessage[]>([]);
   
   const [selectedInsuranceData, setSelectedInsuranceData] = useState<SelectedInsuranceData | null>(null);
   const [insuranceSearchTerm, setInsuranceSearchTerm] = useState('');
@@ -448,7 +470,38 @@ const App: React.FC = () => {
     try { const normalizedData = data.map(normalizeInsuranceDrug); const existingKeys = new Set(insuranceData.map(d => `${d.scientificName}-${d.strength}-${d.form}-${d.indication}`)); const newData = normalizedData.filter(d => { const key = `${d.scientificName}-${d.strength}-${d.form}-${d.indication}`; if (!d.scientificName || existingKeys.has(key)) return false; existingKeys.add(key); return true; }); if (newData.length > 0) setInsuranceData(prevData => [...prevData, ...newData]); setView('settings'); } catch (e) { console.error("Error normalizing insurance data", e); }
   };
   
-  const handleImportGuidelinesData = (data: object): void => { setClinicalGuidelines((prev: object) => ({ ...prev, ...data })); setView('settings'); };
+  const handleImportCosmeticsData = (data: any[]): void => {
+    const normalizeCosmetic = (item: any): Omit<Cosmetic, 'id'> => ({
+      BrandName: item.BrandName || '',
+      SpecificName: item.SpecificName || '',
+      SpecificNameAr: item.SpecificNameAr || '',
+      FirstSubCategoryAr: item.FirstSubCategoryAr || '',
+      FirstSubCategoryEn: item.FirstSubCategoryEn || '',
+      SecondSubCategoryAr: item.SecondSubCategoryAr || '',
+      SecondSubCategoryEn: item.SecondSubCategoryEn || '',
+      manufacturerNameEn: item.manufacturerNameEn || '',
+      manufacturerCountryAr: item.manufacturerCountryAr || '',
+      manufacturerCountryEn: item.manufacturerCountryEn || '',
+      "Active ingredient": item["Active ingredient"] || ''
+    });
+    try {
+      const existingKeys = new Set(cosmetics.map(c => `${c.BrandName}-${c.SpecificName}`));
+      const newData = data.map(normalizeCosmetic).filter(item => {
+        const key = `${item.BrandName}-${item.SpecificName}`;
+        if (!item.SpecificName || existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      }).map(item => ({...item, id: `cosmetic-${Date.now()}-${Math.random()}`}));
+  
+      if (newData.length > 0) {
+        setCosmetics(prev => [...prev, ...newData]);
+      }
+      setView('settings');
+    } catch (e) {
+      console.error("Error normalizing cosmetics data", e);
+    }
+  };
+
   const handleMedicineSelect = (medicine: Medicine) => { scrollPositionRef.current = window.scrollY; setSelectedMedicine(medicine); setView('details'); };
   const handleFilterChange = <K extends keyof Filters>(filterName: K, value: Filters[K]) => setFilters(prevFilters => ({ ...prevFilters, [filterName]: value }));
   const handleClearFilters = useCallback(() => setFilters({ productType: 'all', priceMin: '', priceMax: '', pharmaceuticalForm: '', manufactureName: [], legalStatus: '' }), []);
@@ -465,6 +518,8 @@ const App: React.FC = () => {
     if (['details', 'alternatives', 'chatHistory', 'insuranceDetails', 'favorites'].includes(view)) {
        if (activeTab === 'insurance') {
            setView('insuranceSearch');
+       } else if (activeTab === 'cosmetics') {
+           setView('cosmeticsSearch');
        } else if (activeTab === 'settings') {
            setView('settings');
        } else {
@@ -473,7 +528,7 @@ const App: React.FC = () => {
                 setTimeout(() => window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' }), 10);
            }
        }
-    } else if (['addData', 'addInsuranceData', 'addGuidelinesData'].includes(view)) {
+    } else if (['addData', 'addInsuranceData', 'addCosmeticsData'].includes(view)) {
         setView('settings');
     } else {
         setView(targetView);
@@ -482,6 +537,10 @@ const App: React.FC = () => {
   }, [view, isSearchActive, activeTab, selectedPrescription]);
 
   const handleOpenContextualAssistant = (medicine: Medicine) => {
+    if (!isAIAvailable()) {
+      alert(t('aiUnavailableMessage'));
+      return;
+    }
     requestAIAccess(() => {
       setAssistantContextMedicine(medicine);
       setAssistantInitialPrompt('');
@@ -490,6 +549,10 @@ const App: React.FC = () => {
   };
 
   const handleOpenGeneralAssistant = () => {
+    if (!isAIAvailable()) {
+      alert(t('aiUnavailableMessage'));
+      return;
+    }
     requestAIAccess(() => {
       setAssistantContextMedicine(null);
       setAssistantInitialPrompt('');
@@ -499,6 +562,10 @@ const App: React.FC = () => {
   };
   
   const handleOpenPrescriptionAssistant = useCallback(() => {
+    if (!isAIAvailable()) {
+      alert(t('aiUnavailableMessage'));
+      return;
+    }
     requestAIAccess(() => {
       setAssistantContextMedicine(null);
       setAssistantInitialPrompt('##PRESCRIPTION_MODE##'); 
@@ -569,7 +636,7 @@ const App: React.FC = () => {
       case 'settings':
       case 'addData':
       case 'addInsuranceData':
-      case 'addGuidelinesData':
+      case 'addCosmeticsData':
         return t('navSettings');
       case 'login': return t('login');
       case 'register': return t('register');
@@ -577,14 +644,14 @@ const App: React.FC = () => {
       case 'chatHistory': return t('chatHistoryTitle');
       case 'favorites': return t('favoriteProducts');
       case 'insuranceSearch': return t('insuranceSearchTitle');
+      case 'cosmeticsSearch': return t('cosmeticsSearchTitle');
       case 'insuranceDetails': return t('insuranceCoverageDetails');
       case 'prescriptions': return selectedPrescription ? t('patientName') + ': ' + (selectedPrescription.patientName || '') : t('prescriptionsListTitle');
-      case 'clinicalAssistant': return t('navAssistant');
       default:
         if (activeTab === 'search') return t('appTitle');
         if (activeTab === 'insurance') return t('insuranceSearchTitle');
         if (activeTab === 'prescriptions') return t('prescriptionsListTitle');
-        if (activeTab === 'assistant') return t('navAssistant');
+        if (activeTab === 'cosmetics') return t('cosmeticsSearchTitle');
         if (activeTab === 'settings') return t('navSettings');
         return t('appTitle');
     }
@@ -597,7 +664,7 @@ const App: React.FC = () => {
         search: ['search', 'results'],
         insurance: ['insuranceSearch'],
         prescriptions: ['prescriptions'],
-        assistant: ['clinicalAssistant'],
+        cosmetics: ['cosmeticsSearch'],
         settings: ['settings']
     };
     const currentTabMainViews = mainTabViews[activeTab];
@@ -721,16 +788,11 @@ const App: React.FC = () => {
         />
     }
 
-    if (activeTab === 'assistant') {
-      return <ClinicalAssistantView 
+    if (activeTab === 'cosmetics') {
+      return <CosmeticsView 
         t={t} 
         language={language} 
-        allMedicines={medicines}
-        insuranceData={insuranceData}
-        clinicalGuidelines={clinicalGuidelines}
-        onSavePrescription={(p) => setPrescriptions(prev => [p, ...prev])}
-        chatHistory={clinicalAssistantChatHistory}
-        setChatHistory={setClinicalAssistantChatHistory}
+        cosmetics={cosmetics}
       />;
     }
 
@@ -757,7 +819,7 @@ const App: React.FC = () => {
                         <>
                             <button onClick={() => setView('addData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addData')}</span></button>
                             <button onClick={() => setView('addInsuranceData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addInsuranceData')}</span></button>
-                            <button onClick={() => setView('addGuidelinesData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addGuidelinesData')}</span></button>
+                            <button onClick={() => setView('addCosmeticsData')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><DatabaseIcon /><span>{t('addCosmeticsData')}</span></button>
                         </>
                     )}
                     <button onClick={() => setView('chatHistory')} className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><HistoryIcon /><span>{t('chatHistory')}</span></button>
@@ -774,8 +836,8 @@ const App: React.FC = () => {
           return <AddDataView onImport={handleImportData} t={t} />;
         case 'addInsuranceData':
           return <AddInsuranceDataView onImport={handleImportInsuranceData} t={t} />;
-        case 'addGuidelinesData':
-            return <AddGuidelinesDataView onImport={handleImportGuidelinesData} t={t} />;
+        case 'addCosmeticsData':
+            return <AddCosmeticsDataView onImport={handleImportCosmeticsData} t={t} />;
         case 'admin':
             return user?.role === 'admin' ? <AdminDashboard t={t} allMedicines={medicines} setMedicines={setMedicines} insuranceData={insuranceData} setInsuranceData={setInsuranceData} /> : null;
         case 'favorites':
@@ -793,6 +855,10 @@ const App: React.FC = () => {
           return <ChatHistoryView
             conversations={conversations}
             onSelectConversation={(convo) => {
+              if (!isAIAvailable()) {
+                alert(t('aiUnavailableMessage'));
+                return;
+              }
               requestAIAccess(() => {
                 setSelectedConversation(convo);
                 setAssistantContextMedicine(null);
@@ -819,7 +885,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text min-h-screen flex flex-col overflow-x-hidden">
+    <div className="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text min-h-screen flex flex-col">
       <Header
         title={headerTitle}
         showBack={showBackButton}
@@ -850,25 +916,17 @@ const App: React.FC = () => {
       <BottomNavBar 
         activeTab={activeTab} 
         setActiveTab={(tab) => {
-            if (tab === 'assistant') {
-                requestAIAccess(() => {
-                    setActiveTab('assistant');
-                    setView('clinicalAssistant');
-                }, t);
-            } else {
-                setActiveTab(tab);
-                const mainViews: Record<Tab, View> = {
-                    search: isSearchActive ? 'results' : 'search',
-                    insurance: 'insuranceSearch',
-                    prescriptions: 'prescriptions',
-                    assistant: 'clinicalAssistant',
-                    settings: 'settings',
-                };
-                setView(mainViews[tab]);
-            }
+            setActiveTab(tab);
+            const mainViews: Record<Tab, View> = {
+                search: isSearchActive ? 'results' : 'search',
+                insurance: 'insuranceSearch',
+                prescriptions: 'prescriptions',
+                cosmetics: 'cosmeticsSearch',
+                settings: 'settings',
+            };
+            setView(mainViews[tab]);
         }} 
         t={t} 
-        onPrescriptionLongPress={handleOpenPrescriptionAssistant} 
       />
       
       <AssistantModal

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { FunctionDeclaration, Type, Part, Tool } from '@google/genai';
+import { FunctionDeclaration, Type, Part, Tool, GenerateContentResponse } from '@google/genai';
 import { Medicine, TFunction, Language, ChatMessage, PrescriptionData, InsuranceDrug } from '../types';
 import StethoscopeIcon from './icons/StethoscopeIcon';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -144,10 +144,7 @@ You have access to one powerful tool:
       
         const responsePartsFromApi = finalResponse?.candidates?.[0]?.content?.parts;
 
-        if (!responsePartsFromApi || responsePartsFromApi.length === 0) {
-            console.error("AI response is missing parts:", finalResponse);
-            setChatHistory(prev => [...prev, { role: 'model', parts: [{text: t('geminiError')}] }]);
-        } else {
+        if (responsePartsFromApi && responsePartsFromApi.length > 0) {
             const responseParts = [...responsePartsFromApi];
             setChatHistory(prev => [...prev, { role: 'model', parts: responseParts }]);
 
@@ -160,6 +157,15 @@ You have access to one powerful tool:
                     onSavePrescription(fullPrescriptionData);
                 }
             }
+        } else {
+            let errorMessage = t('geminiError');
+            if (finalResponse?.promptFeedback?.blockReason) {
+                errorMessage = `Request blocked: ${finalResponse.promptFeedback.blockReason}`;
+            } else if (!finalResponse.text && (!finalResponse.candidates || finalResponse.candidates.length === 0)) {
+                errorMessage = t('noResultsFromAI');
+            }
+            console.error("AI response was empty or blocked. Full response:", finalResponse);
+            setChatHistory(prev => [...prev, { role: 'model', parts: [{text: errorMessage}] }]);
         }
     } catch (err) {
       console.error("AI service error:", err);

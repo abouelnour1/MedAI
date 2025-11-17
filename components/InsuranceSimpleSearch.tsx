@@ -1,7 +1,7 @@
 
 
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { TFunction, Language, InsuranceDrug, Medicine, SelectedInsuranceData, ScientificGroupData, InsuranceSearchMode } from '../types';
 import SearchIcon from './icons/SearchIcon';
 import ClearIcon from './icons/ClearIcon';
@@ -33,7 +33,28 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
     searchMode,
     setSearchMode,
 }) => {
-  
+  const [inputValue, setInputValue] = useState(searchTerm);
+
+  // Debounce effect to update the parent search term
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (inputValue !== searchTerm) {
+        setSearchTerm(inputValue);
+      }
+    }, 300); // 300ms delay
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [inputValue, searchTerm, setSearchTerm]);
+
+  // Effect to sync input value if parent term changes (e.g., from a global clear)
+  useEffect(() => {
+    if (searchTerm !== inputValue) {
+      setInputValue(searchTerm);
+    }
+  }, [searchTerm]);
+
   const searchResults = useMemo((): SearchResult[] => {
     const trimmedSearchTerm = searchTerm.trim();
     if (trimmedSearchTerm.length < 3) return [];
@@ -241,6 +262,11 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
     });
   };
 
+  const handleClear = () => {
+    setInputValue('');
+    setSearchTerm('');
+  };
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -266,17 +292,17 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
       <div className="relative">
         <input
           type="text"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
           placeholder={placeholderText}
           className="w-full h-10 py-2 pl-3 pr-10 text-sm bg-light-card dark:bg-dark-card border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus-border-primary rounded-xl outline-none transition-colors"
           aria-label={placeholderText}
         />
         <div className="absolute top-1/2 right-3 transform -translate-y-1/2">
-          {searchTerm && (
+          {inputValue && (
              <button
               type="button"
-              onClick={() => setSearchTerm('')}
+              onClick={handleClear}
               className="p-2 text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text"
               aria-label={t('clearSearch')}
             >

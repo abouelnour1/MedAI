@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { TFunction, Language } from '../types';
 import AssistantIcon from './icons/AssistantIcon';
+import { isAIAvailable } from '../geminiService';
 
 interface FloatingAssistantButtonProps {
     onClick: () => void;
@@ -12,6 +13,7 @@ interface FloatingAssistantButtonProps {
 const FloatingAssistantButton: React.FC<FloatingAssistantButtonProps> = ({ onClick, onLongPress, t, language }) => {
     const pressTimer = useRef<number | undefined>(undefined);
     const isLongPressTriggered = useRef(false);
+    const aiAvailable = isAIAvailable();
 
     const handlePointerDown = () => {
         isLongPressTriggered.current = false;
@@ -43,9 +45,11 @@ const FloatingAssistantButton: React.FC<FloatingAssistantButtonProps> = ({ onCli
             onContextMenu={(e) => e.preventDefault()} // Prevent context menu
             className={`w-16 h-16 bg-primary text-white rounded-2xl shadow-lg flex items-center justify-center
                        transform transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-400 dark:focus:ring-blue-800
-                       opacity-90 hover:opacity-100 focus:opacity-100`}
+                       opacity-90 hover:opacity-100 focus:opacity-100
+                       disabled:bg-slate-400 disabled:dark:bg-slate-600 disabled:cursor-not-allowed disabled:scale-100`}
             aria-label={t('assistantFabTooltip')}
-            title={t('assistantFabTooltip')}
+            title={aiAvailable ? t('assistantFabTooltip') : t('aiUnavailableShort')}
+            disabled={!aiAvailable}
         >
             <AssistantIcon />
         </button>

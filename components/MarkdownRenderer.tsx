@@ -8,8 +8,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
   if (!content) return null;
 
   const createMarkup = (htmlString: string) => {
-    const bolded = htmlString.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    return { __html: bolded };
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const withLinks = htmlString.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    const withBold = withLinks.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    return { __html: withBold };
   };
 
   const lines = content.split('\n');
@@ -35,10 +37,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
   lines.forEach((line) => {
     const trimmedLine = line.trim();
     // Match and capture content *after* the list marker
-    const ulMatch = trimmedLine.match(/^([*•])\s+(.*)/);
+    const ulMatch = trimmedLine.match(/^([*•-])\s+(.*)/);
     const olMatch = trimmedLine.match(/^(\d+)\.\s+(.*)/);
     const headingEmojis = ['🧩', '💊', '🩺', '⚖️', '⚠️', '🔄', '🌍'];
-    const isHeading = headingEmojis.some(emoji => trimmedLine.startsWith(emoji));
+    const isHeading = headingEmojis.some(emoji => trimmedLine.startsWith(emoji)) || trimmedLine.startsWith('###');
 
     if (ulMatch) {
       if (listType !== 'ul') {
@@ -55,7 +57,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
     } else {
       flushList();
       if (isHeading) {
-        elements.push(<h3 key={elements.length} dangerouslySetInnerHTML={createMarkup(line)} />);
+        elements.push(<h3 key={elements.length} dangerouslySetInnerHTML={createMarkup(line.replace('###',''))} />);
       } else if (trimmedLine) {
         elements.push(<p key={elements.length} dangerouslySetInnerHTML={createMarkup(line)} />);
       }

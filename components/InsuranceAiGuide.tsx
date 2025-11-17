@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { FunctionDeclaration, Type, Part } from '@google/genai';
+import { FunctionDeclaration, Type, Part, GenerateContentResponse } from '@google/genai';
 import { Medicine, TFunction, Language, ChatMessage } from '../types';
 import SearchIcon from './icons/SearchIcon';
 import AssistantIcon from './icons/AssistantIcon';
@@ -165,12 +165,18 @@ Answer the user's question clearly and comprehensively. The user might ask about
         'gemini-2.5-flash'
       );
       const responseParts = finalResponse?.candidates?.[0]?.content?.parts;
+
       if (responseParts && responseParts.length > 0) {
           setChatHistory(prev => [...prev, { role: 'model', parts: responseParts }]);
       } else {
-          console.error("AI response is missing parts:", finalResponse);
-          const errorMsg = { role: 'model', parts: [{ text: t('geminiError') }] } as ChatMessage;
-          setChatHistory(prev => [...prev, errorMsg]);
+          let errorMessage = t('geminiError');
+          if (finalResponse?.promptFeedback?.blockReason) {
+              errorMessage = `Request blocked: ${finalResponse.promptFeedback.blockReason}`;
+          } else if (!finalResponse.text && (!finalResponse.candidates || finalResponse.candidates.length === 0)) {
+              errorMessage = t('noResultsFromAI');
+          }
+          console.error("AI response was empty or blocked. Full response:", finalResponse);
+          setChatHistory(prev => [...prev, { role: 'model', parts: [{text: errorMessage}] }]);
       }
     } catch (err) {
       console.error("AI service error:", err);
