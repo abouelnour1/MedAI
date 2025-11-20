@@ -17,10 +17,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister, onLogi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (!password) {
+        setError(t('incorrectPasswordError'));
+        return;
+    }
+
     try {
       await login(username, password);
       onLoginSuccess();
     } catch (err: any) {
+      console.error(err);
       setError(err.message || 'Login failed');
     }
   };
@@ -36,7 +43,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister, onLogi
         
         <div>
           <label htmlFor="password"  className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary">{t('password')}</label>
-          <input type="password" id="password" value={password} onChange={e => setPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"/>
+          <input 
+            type="password" 
+            id="password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            required
+            className="mt-1 block w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+          />
         </div>
 
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}

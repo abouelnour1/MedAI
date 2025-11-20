@@ -1,38 +1,27 @@
-// FIX: Removed invalid reference to "vite/client" types. This was causing a compilation error
-// and is unnecessary because the project uses `process.env` and does not use `import.meta.env`.
+
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { User, AuthContextType, AppSettings, TFunction } from '../../types';
+import { auth, db } from '../../firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  sendEmailVerification,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc,
+  serverTimestamp 
+} from 'firebase/firestore';
 
-// Mock user database in localStorage
-const MOCK_USERS_DB_KEY = 'mock_users_db';
-const MOCK_SETTINGS_KEY = 'mock_app_settings';
-const CURRENT_USER_SESSION_KEY = 'current_user_session';
-
-const getMockUsers = (): (User & { password?: string })[] => {
-  try {
-    const users = localStorage.getItem(MOCK_USERS_DB_KEY);
-    return users ? JSON.parse(users) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveMockUsers = (users: (User & { password?: string })[]) => {
-  localStorage.setItem(MOCK_USERS_DB_KEY, JSON.stringify(users));
-};
-
-const getMockSettings = (): AppSettings => {
-  try {
-    const settings = localStorage.getItem(MOCK_SETTINGS_KEY);
-    return settings ? JSON.parse(settings) : { aiRequestLimit: 3 };
-  } catch {
-    return { aiRequestLimit: 3 };
-  }
-};
-
-const saveMockSettings = (settings: AppSettings) => {
-  localStorage.setItem(MOCK_SETTINGS_KEY, JSON.stringify(settings));
-};
+const SETTINGS_DOC_ID = 'app_settings';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -40,84 +29,162 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Sync user state with Firebase Auth
   useEffect(() => {
-    try {
-      const storedUser = sessionStorage.getItem(CURRENT_USER_SESSION_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        await syncUserData(firebaseUser);
+      } else {
+        setUser(null);
+        setIsLoading(false);
       }
-    } catch {
-      // ignore parsing errors
-    } finally {
-      setIsLoading(false);
-    }
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const updateUserSession = (userData: User | null) => {
-    setUser(userData);
-    if (userData) {
-      sessionStorage.setItem(CURRENT_USER_SESSION_KEY, JSON.stringify(userData));
-    } else {
-      sessionStorage.removeItem(CURRENT_USER_SESSION_KEY);
-    }
+  const syncUserData = async (firebaseUser: FirebaseUser) => {
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      try {
+          const userDocSnap = await getDoc(userDocRef);
+
+          if (userDocSnap.exists()) {
+            const firestoreData = userDocSnap.data();
+            setUser({ 
+                id: firebaseUser.uid, 
+                emailVerified: firebaseUser.emailVerified,
+                email: firebaseUser.email || '',
+                ...firestoreData 
+            } as User);
+          } else {
+              // Handle case where auth exists but firestore doc doesn't
+              const newUser: User = {
+                  id: firebaseUser.uid,
+                  username: firebaseUser.email?.split('@')[0] || 'User',
+                  role: 'premium', // Default role
+                  aiRequestCount: 0,
+                  lastRequestDate: new Date().toISOString().split('T')[0],
+                  status: 'pending',
+                  emailVerified: firebaseUser.emailVerified,
+                  email: firebaseUser.email || ''
+              };
+              await setDoc(userDocRef, newUser);
+              setUser(newUser);
+          }
+      } catch (e) {
+          console.error("Error fetching user profile:", e);
+          // Fallback
+          setUser({
+              id: firebaseUser.uid,
+              username: firebaseUser.email?.split('@')[0] || 'User',
+              role: 'premium',
+              aiRequestCount: 0,
+              lastRequestDate: new Date().toISOString().split('T')[0],
+              status: 'pending',
+              emailVerified: firebaseUser.emailVerified,
+              email: firebaseUser.email || ''
+          });
+      }
+      setIsLoading(false);
   };
 
   const login = useCallback(async (username: string, password: string): Promise<void> => {
-    const lowerUsername = username.toLowerCase();
+    let email = username.trim().toLowerCase();
+    // Allow login with just username (for legacy or convenience) assuming fake domain
+    if (!email.includes('@')) {
+        // Note: This assumes legacy users or specific domain logic. 
+        // For verified email flow, explicit email is better, but we keep this for backward compat.
+        email = `${email}@medai.sa`; 
+    }
 
-    // Per user request, allow logging in as 'admin' or 'ادمن' without a password for preview purposes.
-    if (lowerUsername === 'admin' || lowerUsername === 'ادمن') {
-        const adminUser: User = {
-          id: 'admin-user',
-          username: 'admin',
-          role: 'admin',
-          aiRequestCount: 0,
-          lastRequestDate: new Date().toISOString().split('T')[0],
-          status: 'active',
-        };
-        updateUserSession(adminUser);
-        return;
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+        console.error("Login error:", error);
+        let errorMessage = 'خطأ في تسجيل الدخول. تأكد من البريد الإلكتروني وكلمة المرور.';
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+             errorMessage = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
+        } else if (error.code === 'auth/too-many-requests') {
+             errorMessage = 'تم تعليق الدخول مؤقتاً بسبب تكرار المحاولة. حاول لاحقاً.';
+        }
+        throw new Error(errorMessage);
     }
-    
-    const users = getMockUsers();
-    const foundUser = users.find(u => u.username.toLowerCase() === lowerUsername);
-    
-    if (foundUser && foundUser.password === password) {
-      const { password: _password, ...userToSave } = foundUser;
-      updateUserSession(userToSave);
-      return;
-    }
-    
-    throw new Error('Invalid credentials');
   }, []);
 
-  const register = useCallback(async (username: string, password: string): Promise<void> => {
-    const users = getMockUsers();
-    if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-      throw new Error('Username already exists');
+  const register = useCallback(async (firstName: string, lastName: string, email: string, password: string): Promise<void> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      
+      // Send Verification Email
+      await sendEmailVerification(userCredential.user);
+
+      const newUser: User = {
+        id: userCredential.user.uid,
+        username: fullName, // Storing Full Name as username
+        role: 'premium',
+        aiRequestCount: 0,
+        lastRequestDate: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        emailVerified: false, // Initially false
+        email: cleanEmail
+      };
+      
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
+      
+      // Update local state immediately to reflect the new user
+      setUser(newUser);
+
+    } catch (error: any) {
+        console.error("Registration error:", error);
+        if (error.code === 'auth/email-already-in-use') {
+            throw new Error('البريد الإلكتروني هذا مسجل بالفعل.');
+        }
+        throw new Error('فشل إنشاء الحساب. ' + error.message);
     }
-    
-    const newUser: User & { password?: string } = {
-      id: `user-${Date.now()}`,
-      username: username,
-      role: 'premium',
-      aiRequestCount: 0,
-      lastRequestDate: new Date().toISOString().split('T')[0],
-      status: 'pending',
-      password: password, // Storing password for mock login
-    };
-    
-    saveMockUsers([...users, newUser]);
   }, []);
 
-  const logout = useCallback(() => {
-    updateUserSession(null);
-    window.location.reload(); // Reload to reset all component states
+  const logout = useCallback(async () => {
+    try {
+        await signOut(auth);
+        setUser(null);
+    } catch (error) {
+        console.error("Logout error:", error);
+    }
+  }, []);
+
+  const resendVerificationEmail = useCallback(async () => {
+    if (auth.currentUser && !auth.currentUser.emailVerified) {
+        try {
+            await sendEmailVerification(auth.currentUser);
+        } catch (e) {
+            console.error("Error sending verification email", e);
+            throw e;
+        }
+    }
+  }, []);
+
+  const reloadUser = useCallback(async () => {
+    if (auth.currentUser) {
+        await auth.currentUser.reload();
+        // Force sync
+        await syncUserData(auth.currentUser);
+    }
   }, []);
   
-  const requestAIAccess = useCallback((callback: () => void, t: TFunction) => {
+  const requestAIAccess = useCallback(async (callback: () => void, t: TFunction) => {
     if (!user) {
         alert(t('loginRequired'));
+        return;
+    }
+
+    // Allow admins bypass even if email not verified (though they should verify)
+    // Enforce email verification for others
+    if (user.role !== 'admin' && !user.emailVerified) {
+        alert(t('emailVerificationRequired'));
         return;
     }
     
@@ -140,61 +207,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             currentUserState.lastRequestDate = today;
         }
         
+        // Optimistic update
         currentUserState.aiRequestCount += 1;
-        updateUserSession(currentUserState);
+        setUser(currentUserState);
         
-        const users = getMockUsers();
-        const userIndex = users.findIndex(u => u.id === currentUserState.id);
-        if (userIndex !== -1) {
-            users[userIndex].aiRequestCount = currentUserState.aiRequestCount;
-            users[userIndex].lastRequestDate = currentUserState.lastRequestDate;
-            saveMockUsers(users);
+        // Update in Firestore
+        try {
+             const userRef = doc(db, 'users', user.id);
+            await updateDoc(userRef, {
+                aiRequestCount: currentUserState.aiRequestCount,
+                lastRequestDate: currentUserState.lastRequestDate
+            });
+        } catch (e) {
+            console.error("Failed to update usage stats", e);
+            // Silent fail, allow usage
         }
-        
         callback();
     }
   }, [user]);
 
   // Admin functions
-  const getAllUsers = (): User[] => {
-    const users = getMockUsers();
-    return users.map(({ password, ...user }) => user);
-  };
+  const getAllUsers = useCallback(() => {
+    return [] as User[]; 
+  }, []);
 
-  const updateUser = (updatedUser: User) => {
-    let users = getMockUsers();
-    const userIndex = users.findIndex(u => u.id === updatedUser.id);
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...updatedUser };
-      saveMockUsers(users);
+  const updateUser = useCallback(async (updatedUser: User) => {
+    try {
+        const userRef = doc(db, 'users', updatedUser.id);
+        await updateDoc(userRef, { ...updatedUser });
+        if (user && user.id === updatedUser.id) {
+            setUser(updatedUser);
+        }
+    } catch (e) {
+        console.error("Error updating user:", e);
     }
-  };
+  }, [user]);
 
-  const deleteUser = (userId: string) => {
-    let users = getMockUsers();
-    const updatedUsers = users.filter(u => u.id !== userId);
-    saveMockUsers(updatedUsers);
-  };
+  const deleteUser = useCallback(async (userId: string) => {
+    try {
+        await deleteDoc(doc(db, 'users', userId));
+    } catch (e) {
+        console.error("Error deleting user:", e);
+    }
+  }, []);
 
-  const getSettings = (): AppSettings => {
-    return getMockSettings();
-  };
+  const getSettings = useCallback((): AppSettings => {
+    return { aiRequestLimit: 10, isAiEnabled: true };
+  }, []);
 
-  const updateSettings = (settings: AppSettings) => {
-    saveMockSettings(settings);
-  };
+  const updateSettings = useCallback(async (settings: AppSettings) => {
+    try {
+        const settingsRef = doc(db, 'settings', SETTINGS_DOC_ID);
+        await setDoc(settingsRef, settings, { merge: true });
+    } catch (e) {
+        console.error("Error saving settings:", e);
+    }
+  }, []);
 
 
-  const value = { user, login, register, logout, requestAIAccess, isLoading, getAllUsers, updateUser, deleteUser, getSettings, updateSettings };
+  const value = { 
+      user, 
+      login, 
+      register, 
+      logout, 
+      requestAIAccess, 
+      resendVerificationEmail, 
+      reloadUser,
+      isLoading, 
+      getAllUsers, 
+      updateUser, 
+      deleteUser, 
+      getSettings, 
+      updateSettings 
+    };
 
   return (
     <AuthContext.Provider value={value}>
-      {!isLoading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');

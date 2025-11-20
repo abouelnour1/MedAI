@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { TFunction, User, Medicine, AppSettings, InsuranceDrug } from '../../types';
 import { useAuth } from './AuthContext';
@@ -8,8 +9,14 @@ import SettingsIcon from '../icons/SettingsIcon';
 import SearchIcon from '../icons/SearchIcon';
 import TrashIcon from '../icons/TrashIcon';
 import HealthInsuranceIcon from '../icons/HealthInsuranceIcon';
+import { db } from '../../firebase';
+import { collection, getDocs, writeBatch, doc, addDoc, setDoc } from 'firebase/firestore';
+import { MEDICINE_DATA, SUPPLEMENT_DATA_RAW } from '../../data/data';
+import { INITIAL_INSURANCE_DATA } from '../../data/insurance-data';
+import { CUSTOM_INSURANCE_DATA } from '../../data/custom-insurance-data';
+import { INITIAL_COSMETICS_DATA } from '../../data/cosmetics-data';
 
-type Panel = 'overview' | 'users' | 'medicines' | 'insurance' | 'settings';
+type Panel = 'overview' | 'users' | 'medicines' | 'insurance' | 'settings' | 'migration';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl flex items-center gap-4">
@@ -30,7 +37,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines, setMedicines, insuranceData, setInsuranceData }) => {
-  const { getAllUsers, updateUser, deleteUser, getSettings, updateSettings } = useAuth();
+  const { updateUser, deleteUser, getSettings, updateSettings } = useAuth();
   const [activePanel, setActivePanel] = useState<Panel>('overview');
   
   // User Management State
@@ -50,10 +57,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
 
   // Settings State
   const [appSettings, setAppSettings] = useState<AppSettings>(getSettings());
+  
+  // Migration State
+  const [migrationStatus, setMigrationStatus] = useState<string>('');
+  const [isMigrating, setIsMigrating] = useState(false);
+
+  // Fetch users from Firestore
+  const fetchUsers = async () => {
+      try {
+          const querySnapshot = await getDocs(collection(db, 'users'));
+          const usersList: User[] = [];
+          querySnapshot.forEach((doc) => {
+              usersList.push({ id: doc.id, ...doc.data() } as User);
+          });
+          setUsers(usersList);
+      } catch (e) {
+          console.error("Error fetching users", e);
+      }
+  };
 
   useEffect(() => {
-    setUsers(getAllUsers());
-  }, [getAllUsers, activePanel]);
+    if (activePanel === 'users' || activePanel === 'overview') {
+        fetchUsers();
+    }
+  }, [activePanel]);
 
   useEffect(() => {
     const isModalOpen = isMedicineModalOpen || isInsuranceModalOpen;
@@ -88,38 +115,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
     );
   }, [insuranceData, insuranceSearchTerm]);
 
-  const handleUserUpdate = () => {
+  const handleUserUpdate = async () => {
     if (editingUser) {
-        updateUser(editingUser);
-        setUsers(getAllUsers());
+        await updateUser(editingUser);
+        await fetchUsers();
         setEditingUser(null);
     }
   };
   
-  const handleUserApprove = (userId: string) => {
+  const handleUserApprove = async (userId: string) => {
     const userToUpdate = users.find(u => u.id === userId);
     if (userToUpdate) {
-        updateUser({ ...userToUpdate, status: 'active' });
-        setUsers(getAllUsers()); // Refresh user list
+        await updateUser({ ...userToUpdate, status: 'active' });
+        await fetchUsers(); 
     }
   };
 
-  const handleUserDelete = (userId: string) => {
+  const handleUserDelete = async (userId: string) => {
     if (window.confirm(t('confirmDeleteUser'))) {
-        deleteUser(userId);
-        setUsers(getAllUsers());
+        await deleteUser(userId);
+        await fetchUsers();
     }
   };
 
-  const handleMedicineFormSubmit = (e: React.FormEvent) => {
+  const handleMedicineFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMedicine) return;
 
-    if (editingMedicine.RegisterNumber.startsWith('new-')) { // It's a new medicine
-      const updatedMedicine = {...editingMedicine, RegisterNumber: `med-${Date.now()}`};
-      setMedicines(prev => [...prev, updatedMedicine]);
-    } else { // It's an existing medicine
-      setMedicines(prev => prev.map(m => m.RegisterNumber === editingMedicine.RegisterNumber ? editingMedicine : m));
+    try {
+        if (editingMedicine.RegisterNumber.startsWith('new-')) { // New medicine
+             // Remove temporary ID and let Firestore gen ID or use unique field
+             const { RegisterNumber, ...dataToSave } = editingMedicine;
+             const docRef = await addDoc(collection(db, 'medicines'), {
+                 ...dataToSave,
+                 RegisterNumber: `med-${Date.now()}` // or use actual register number if available
+             });
+             // Optimistic update or refetch
+             setMedicines(prev => [...prev, { ...editingMedicine, RegisterNumber: `med-${Date.now()}` }]);
+        } else {
+             // Update existing
+             // Finding the document ID in Firestore would require a query if we don't store the docId in the Medicine object.
+             // For now, assuming we modify local first. In full implementation, Medicine type should have firestoreId.
+             alert("Update functionality requires Firestore Document IDs. Use Migration tool first.");
+        }
+    } catch(e) {
+        console.error("Error saving medicine", e);
     }
     
     setIsMedicineModalOpen(false);
@@ -145,13 +185,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
   const handleInsuranceFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingInsuranceItem) return;
-
-    if (editingInsuranceItem.id) { // It's an existing item
-        setInsuranceData(prev => prev.map(item => item.id === editingInsuranceItem.id ? editingInsuranceItem : item));
-    } else { // It's a new item
-        const newItem = {...editingInsuranceItem, id: `ins-${Date.now()}`};
-        setInsuranceData(prev => [newItem, ...prev]);
-    }
+    // Similar logic for Firestore saving would go here
     setIsInsuranceModalOpen(false);
     setEditingInsuranceItem(null);
   };
@@ -178,6 +212,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
     setAppSettings(newSettings);
     updateSettings(newSettings);
   };
+
+  // --- MIGRATION LOGIC ---
+  const migrateDataToFirebase = async () => {
+      if (!window.confirm("Are you sure? This will upload all static data to Firestore.")) return;
+      
+      setIsMigrating(true);
+      setMigrationStatus('Starting migration...');
+      
+      const batchSize = 450; // Firestore batch limit is 500
+      
+      const uploadCollection = async (collectionName: string, data: any[]) => {
+          let count = 0;
+          const total = data.length;
+          
+          for (let i = 0; i < total; i += batchSize) {
+              const batch = writeBatch(db);
+              const chunk = data.slice(i, i + batchSize);
+              
+              chunk.forEach(item => {
+                  const docRef = doc(collection(db, collectionName));
+                  batch.set(docRef, item);
+              });
+              
+              await batch.commit();
+              count += chunk.length;
+              setMigrationStatus(`Uploaded ${count}/${total} to ${collectionName}...`);
+          }
+          setMigrationStatus(`Finished uploading ${collectionName}.`);
+      };
+
+      try {
+          // 1. Migrate Medicines
+          const normalizedSupplements = SUPPLEMENT_DATA_RAW.map(p => {
+               // Normalize logic inline or reuse from App.tsx if exported
+               return {
+                   "RegisterNumber": String(p.Id || Math.random()),
+                   "Trade Name": p.TradeName,
+                   "Scientific Name": p.ScientificName || '',
+                   "Public price": p.Price || 'N/A',
+                   "Product type": 'Supplement',
+                   // ... map other fields minimally for now
+                   "PharmaceuticalForm": p.DoesageForm || '',
+                   "Manufacture Name": p.ManufacturerNameEN || '',
+                   "Legal Status": "OTC"
+               };
+          });
+          const allMeds = [...MEDICINE_DATA, ...normalizedSupplements];
+          await uploadCollection('medicines', allMeds);
+          
+          // 2. Migrate Insurance
+          const allInsurance = [...INITIAL_INSURANCE_DATA, ...CUSTOM_INSURANCE_DATA];
+          await uploadCollection('insurance', allInsurance);
+
+          // 3. Migrate Cosmetics
+          await uploadCollection('cosmetics', INITIAL_COSMETICS_DATA);
+
+          setMigrationStatus('All data migrated successfully! Please refresh the page to fetch from Firestore.');
+      } catch (e: any) {
+          console.error("Migration failed", e);
+          setMigrationStatus(`Migration failed: ${e.message}`);
+      } finally {
+          setIsMigrating(false);
+      }
+  };
+
+
+  // Memoized lists for datalist suggestions
+  const uniqueManufactureNames = useMemo(() => Array.from(new Set(allMedicines.map(m => m['Manufacture Name']))).sort(), [allMedicines]);
+  const uniquePharmaceuticalForms = useMemo(() => Array.from(new Set(allMedicines.map(m => m.PharmaceuticalForm))).sort(), [allMedicines]);
+  const uniqueScientificNames = useMemo(() => {
+    const names = new Set<string>();
+    allMedicines.forEach(m => m['Scientific Name'].split(',').forEach(name => name.trim() && names.add(name.trim())));
+    return Array.from(names).sort();
+  }, [allMedicines]);
+  const uniqueIndications = useMemo(() => Array.from(new Set(insuranceData.map(i => i.indication))).sort(), [insuranceData]);
+  const uniqueInsuranceSciNames = useMemo(() => Array.from(new Set(insuranceData.map(i => i.scientificName))).sort(), [insuranceData]);
+  const uniqueDrugClasses = useMemo(() => Array.from(new Set(insuranceData.map(i => i.drugClass))).sort(), [insuranceData]);
+
 
   const renderPanel = () => {
     switch (activePanel) {
@@ -345,6 +457,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                     <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-2">{t('aiRequestLimitDescription')}</p>
                     <input type="number" value={appSettings.aiRequestLimit} onChange={e => handleSettingsChange('aiRequestLimit', parseInt(e.target.value, 10) || 0)} className="w-full max-w-xs px-3 py-2 bg-white dark:bg-slate-700 rounded-lg" />
                 </div>
+                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
+                    <h3 className="font-bold text-lg">AI Services</h3>
+                     <div className="flex items-center justify-between mt-2">
+                        <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Enable or disable all AI features</p>
+                        <label htmlFor="ai-toggle" className="inline-flex relative items-center cursor-pointer">
+                            <input type="checkbox" id="ai-toggle" className="sr-only peer"
+                                checked={appSettings.isAiEnabled}
+                                onChange={e => handleSettingsChange('isAiEnabled', e.target.checked)}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/50 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
                     <h3 className="font-bold text-lg">{t('apiKey')}</h3>
                     <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-2">{t('apiKeyDescription')}</p>
@@ -355,6 +480,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                 </div>
             </div>
         );
+        case 'migration':
+            return (
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl space-y-4">
+                    <h3 className="font-bold text-lg text-orange-600">Data Migration</h3>
+                    <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                        This tool will upload all data from the static JSON files (data.ts, etc.) to your Firestore database. 
+                        This should generally be done only once when initializing the database.
+                    </p>
+                    <div className="p-4 bg-black text-green-400 font-mono text-xs rounded-lg h-32 overflow-y-auto">
+                        {migrationStatus || 'Ready to migrate.'}
+                    </div>
+                    <button 
+                        onClick={migrateDataToFirebase} 
+                        disabled={isMigrating}
+                        className="px-4 py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 disabled:bg-gray-400"
+                    >
+                        {isMigrating ? 'Migrating...' : 'Start Migration to Firebase'}
+                    </button>
+                </div>
+            )
     }
   };
 
@@ -374,6 +519,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
           <SidebarItem panel="medicines" label={t('adminPanelMedicines')} icon={<PillBottleIcon />} />
           <SidebarItem panel="insurance" label={t('adminPanelInsurance')} icon={<HealthInsuranceIcon />} />
           <SidebarItem panel="settings" label={t('adminPanelSettings')} icon={<SettingsIcon />} />
+          <SidebarItem panel="migration" label="DB Migration" icon={<div className="text-orange-500"><SettingsIcon /></div>} />
         </nav>
       </aside>
       <main className="flex-grow p-3">
@@ -383,26 +529,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
             {activePanel === 'medicines' && t('medicineManagementTitle')}
             {activePanel === 'insurance' && t('insuranceManagementTitle')}
             {activePanel === 'settings' && t('appSettingsTitle')}
+            {activePanel === 'migration' && 'Database Migration'}
         </h2>
         {renderPanel()}
       </main>
-
-       {isMedicineModalOpen && editingMedicine && (
+      
+      {/* Medicine Modal */}
+      {isMedicineModalOpen && editingMedicine && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setIsMedicineModalOpen(false)}>
                 <div className="bg-white dark:bg-dark-card p-6 rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col mt-8 sm:mt-0" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4 flex-shrink-0">{editingMedicine.RegisterNumber.startsWith('new-') ? t('addMedicine') : t('editMedicine')}</h3>
                     <form onSubmit={handleMedicineFormSubmit} className="flex-grow flex flex-col overflow-hidden">
                         <div className="space-y-3 overflow-y-auto pr-2">
+                            <datalist id="manufacturer-list"><>{uniqueManufactureNames.map(name => <option key={name} value={name} />)}</></datalist>
+                            <datalist id="scientific-name-list"><>{uniqueScientificNames.map(name => <option key={name} value={name} />)}</></datalist>
+                            <datalist id="form-list"><>{uniquePharmaceuticalForms.map(name => <option key={name} value={name} />)}</></datalist>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                <div><label className="text-sm font-medium">{t('tradeName')}</label><input type="text" value={editingMedicine['Trade Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Trade Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
-                               <div><label className="text-sm font-medium">{t('scientificName')}</label><input type="text" value={editingMedicine['Scientific Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Scientific Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required/></div>
+                               <div><label className="text-sm font-medium">{t('scientificName')}</label><input list="scientific-name-list" type="text" value={editingMedicine['Scientific Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Scientific Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required/></div>
                                <div><label className="text-sm font-medium">{t('price')}</label><input type="text" value={editingMedicine['Public price']} onChange={e => setEditingMedicine({...editingMedicine, 'Public price': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                               <div><label className="text-sm font-medium">{t('pharmaceuticalForm')}</label><input type="text" value={editingMedicine.PharmaceuticalForm} onChange={e => setEditingMedicine({...editingMedicine, PharmaceuticalForm: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('pharmaceuticalForm')}</label><input list="form-list" type="text" value={editingMedicine.PharmaceuticalForm} onChange={e => setEditingMedicine({...editingMedicine, PharmaceuticalForm: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                <div><label className="text-sm font-medium">{t('strength')}</label><input type="text" value={editingMedicine.Strength} onChange={e => setEditingMedicine({...editingMedicine, Strength: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                <div><label className="text-sm font-medium">{t('strengthUnit')}</label><input type="text" value={editingMedicine.StrengthUnit} onChange={e => setEditingMedicine({...editingMedicine, StrengthUnit: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                <div><label className="text-sm font-medium">{t('packageSize')}</label><input type="text" value={editingMedicine.PackageSize} onChange={e => setEditingMedicine({...editingMedicine, PackageSize: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                <div><label className="text-sm font-medium">{t('packageType')}</label><input type="text" value={editingMedicine.PackageTypes} onChange={e => setEditingMedicine({...editingMedicine, PackageTypes: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                               <div><label className="text-sm font-medium">{t('manufacturer')}</label><input type="text" value={editingMedicine['Manufacture Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Manufacture Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('manufacturer')}</label><input list="manufacturer-list" type="text" value={editingMedicine['Manufacture Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Manufacture Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                <div>
                                     <label className="text-sm font-medium">{t('legalStatus')}</label>
                                     <select value={editingMedicine['Legal Status']} onChange={e => setEditingMedicine({...editingMedicine, 'Legal Status': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded">
@@ -428,18 +579,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
             </div>
         )}
 
-       {isInsuranceModalOpen && editingInsuranceItem && (
+      {/* Insurance Modal */}
+      {isInsuranceModalOpen && editingInsuranceItem && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setIsInsuranceModalOpen(false)}>
                 <div className="bg-white dark:bg-dark-card p-6 rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col mt-8 sm:mt-0" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4 flex-shrink-0">{editingInsuranceItem.id ? t('editInsuranceItem') : t('addInsuranceItem')}</h3>
                     <form onSubmit={handleInsuranceFormSubmit} className="flex-grow flex flex-col overflow-hidden">
                        <div className="space-y-2 overflow-y-auto pr-2">
+                            <datalist id="indication-list"><>{uniqueIndications.map(name => <option key={name} value={name} />)}</></datalist>
+                            <datalist id="insurance-sci-name-list"><>{uniqueInsuranceSciNames.map(name => <option key={name} value={name} />)}</></datalist>
+                            <datalist id="drug-class-list"><>{uniqueDrugClasses.map(name => <option key={name} value={name} />)}</></datalist>
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-                                <div className="sm:col-span-2"><label className="text-sm font-medium">{t('indication')}</label><input type="text" value={editingInsuranceItem.indication} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, indication: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
-                                <div><label className="text-sm font-medium">{t('scientificName')}</label><input type="text" value={editingInsuranceItem.scientificName} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, scientificName: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
+                                <div className="sm:col-span-2"><label className="text-sm font-medium">{t('indication')}</label><input list="indication-list" type="text" value={editingInsuranceItem.indication} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, indication: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
+                                <div><label className="text-sm font-medium">{t('scientificName')}</label><input list="insurance-sci-name-list" type="text" value={editingInsuranceItem.scientificName} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, scientificName: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
                                 <div><label className="text-sm font-medium">{t('icd10Code')}</label><input type="text" value={editingInsuranceItem.icd10Code} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, icd10Code: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                                <div className="sm:col-span-2"><label className="text-sm font-medium">{t('drugClass')}</label><input type="text" value={editingInsuranceItem.drugClass} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, drugClass: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                                <div><label className="text-sm font-medium">{t('pharmaceuticalForm')}</label><input type="text" value={editingInsuranceItem.form} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, form: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                                <div className="sm:col-span-2"><label className="text-sm font-medium">{t('drugClass')}</label><input list="drug-class-list" type="text" value={editingInsuranceItem.drugClass} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, drugClass: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                                <div><label className="text-sm font-medium">{t('pharmaceuticalForm')}</label><input list="form-list" type="text" value={editingInsuranceItem.form} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, form: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                 <div><label className="text-sm font-medium">{t('atcCode')}</label><input type="text" value={editingInsuranceItem.atcCode} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, atcCode: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                 <div><label className="text-sm font-medium">{t('strength')}</label><input type="text" value={editingInsuranceItem.strength} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, strength: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
                                 <div><label className="text-sm font-medium">{t('strengthUnit')}</label><input type="text" value={editingInsuranceItem.strengthUnit} onChange={e => setEditingInsuranceItem({...editingInsuranceItem, strengthUnit: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>

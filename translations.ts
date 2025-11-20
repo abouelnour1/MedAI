@@ -1,3 +1,4 @@
+
 export const translations = {
   ar: {
     appTitle: 'دليل الدواء السعودي',
@@ -231,6 +232,9 @@ export const translations = {
     register: 'تسجيل',
     username: 'اسم المستخدم',
     password: 'كلمة المرور',
+    firstName: 'الاسم الأول',
+    lastName: 'اسم العائلة',
+    email: 'البريد الإلكتروني',
     loginPrompt: 'ليس لديك حساب؟',
     registerPrompt: 'لديك حساب بالفعل؟',
     adminDashboard: 'لوحة التحكم',
@@ -268,7 +272,7 @@ export const translations = {
     aiRequestLimitDescription: 'حدد الحد الأقصى لعدد طلبات الذكاء الاصطناعي للمستخدمين المميزين يوميًا.',
     apiKey: 'مفتاح API',
     apiKeyDescription: 'مفتاح Google Gemini API المستخدم حاليًا.',
-    registerSuccessPending: 'تم التسجيل بنجاح! يمكنك الآن تسجيل الدخول. ميزات الذكاء الاصطناعي تتطلب موافقة المشرف.',
+    registerSuccessPending: 'تم إنشاء الحساب بنجاح! الرجاء مراجعة بريدك الإلكتروني لتفعيل الحساب.',
     accountPendingError: 'حسابك قيد المراجعة من قبل المشرف.',
     status: 'الحالة',
     statusActive: 'نشط',
@@ -302,7 +306,13 @@ export const translations = {
     wildcardSearchHint: 'نصيحة: استخدم علامة % كحرف بدل للبحث المتقدم (مثال: ce%um).',
     addGuidelinesDataTitle: 'إضافة بيانات الإرشادات السريرية',
     addGuidelinesDataDescription: 'قم بلصق بيانات الإرشادات السريرية بصيغة JSON.',
-    clinicalAssistantWelcome: 'أهلاً بك في المساعد السريري. كيف يمكنني المساعدة اليوم؟'
+    clinicalAssistantWelcome: 'أهلاً بك في المساعد السريري. كيف يمكنني المساعدة اليوم؟',
+    verifyEmailTitle: 'تفعيل البريد الإلكتروني',
+    verifyEmailDesc: 'يرجى التحقق من البريد الوارد والنقر على رابط التفعيل الذي تم إرساله إلى:',
+    resendVerificationEmail: 'إعادة إرسال بريد التفعيل',
+    iHaveVerified: 'لقد قمت بالتفعيل، تحديث',
+    verificationEmailSent: 'تم إرسال رابط التفعيل بنجاح.',
+    emailVerificationRequired: 'يرجى تفعيل بريدك الإلكتروني لاستخدام هذه الميزة.'
   },
   en: {
     appTitle: 'Saudi Drug Directory',
@@ -536,6 +546,9 @@ export const translations = {
     register: 'Register',
     username: 'Username',
     password: 'Password',
+    firstName: 'First Name',
+    lastName: 'Last Name',
+    email: 'Email',
     loginPrompt: "Don't have an account?",
     registerPrompt: 'Already have an account?',
     adminDashboard: 'Admin Dashboard',
@@ -573,7 +586,7 @@ export const translations = {
     aiRequestLimitDescription: 'Set the maximum number of daily AI requests for premium users.',
     apiKey: 'API Key',
     apiKeyDescription: 'The currently used Google Gemini API Key.',
-    registerSuccessPending: 'Registration successful! You can now log in. AI features require admin approval.',
+    registerSuccessPending: 'Account created! Please check your email to verify your account.',
     accountPendingError: 'Your account is pending approval by an administrator.',
     status: 'Status',
     statusActive: 'Active',
@@ -607,7 +620,13 @@ export const translations = {
     wildcardSearchHint: 'Tip: Use the % symbol as a wildcard for advanced search (e.g., ce%um).',
     addGuidelinesDataTitle: 'Add Clinical Guidelines Data',
     addGuidelinesDataDescription: 'Paste clinical guidelines data in JSON format.',
-    clinicalAssistantWelcome: 'Welcome to the Clinical Assistant. How can I help today?'
+    clinicalAssistantWelcome: 'Welcome to the Clinical Assistant. How can I help today?',
+    verifyEmailTitle: 'Verify Email Address',
+    verifyEmailDesc: 'Please check your inbox and click the verification link sent to:',
+    resendVerificationEmail: 'Resend Verification Email',
+    iHaveVerified: 'I Have Verified, Reload',
+    verificationEmailSent: 'Verification email sent successfully.',
+    emailVerificationRequired: 'Please verify your email to use this feature.'
   }
 };
 

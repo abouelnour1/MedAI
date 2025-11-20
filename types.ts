@@ -1,5 +1,4 @@
 
-
 import { TranslationKeys } from './translations';
 import { Part } from '@google/genai';
 
@@ -82,7 +81,7 @@ export interface Cosmetic {
 
 export type ProductTypeFilter = 'all' | 'medicine' | 'supplement';
 
-export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addCosmeticsData' | 'cosmeticsSearch' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites';
+export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addCosmeticsData' | 'cosmeticsSearch' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites' | 'verifyEmail';
 
 export type TextSearchMode = 'tradeName' | 'scientificName' | 'all';
 
@@ -168,11 +167,12 @@ export interface SelectedInsuranceData {
 export interface User {
   id: string;
   username: string;
-  // Guest is represented by a null user object
   role: 'admin' | 'premium'; 
   aiRequestCount: number;
-  lastRequestDate: string; // ISO string date yyyy-mm-dd
+  lastRequestDate: string; 
   status: 'active' | 'pending';
+  emailVerified: boolean; // Added this field
+  email?: string;
 }
 
 export interface AppSettings {
@@ -183,9 +183,11 @@ export interface AppSettings {
 export type AuthContextType = {
   user: User | null;
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string) => Promise<void>;
+  register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   requestAIAccess: (callback: () => void, t: TFunction) => void;
+  resendVerificationEmail: () => Promise<void>;
+  reloadUser: () => Promise<void>;
   isLoading: boolean;
   // Admin functions
   getAllUsers: () => User[];
