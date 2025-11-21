@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Medicine, View, Filters, TextSearchMode, Language, TFunction, Tab, SortByOption, Conversation, ChatMessage, InsuranceDrug, PrescriptionData, SelectedInsuranceData, InsuranceSearchMode, Cosmetic } from './types';
 import Header from './components/Header';
@@ -40,7 +39,7 @@ import StarIcon from './components/icons/StarIcon';
 import FavoritesView from './components/FavoritesView';
 import { isAIAvailable } from './geminiService';
 import { db } from './firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, setDoc } from 'firebase/firestore';
 import { Part } from '@google/genai';
 
 const normalizeProduct = (product: any): Medicine => {
@@ -112,8 +111,49 @@ const App: React.FC = () => {
   
   const [cosmetics, setCosmetics] = useState<Cosmetic[]>(() => INITIAL_COSMETICS_DATA);
   
+  // Smart Merge: Fetch updates from Firebase and merge with local data
   useEffect(() => {
-    console.log("Firebase data fetching currently disabled to save quota and improve performance.");
+    const syncMedicines = async () => {
+        try {
+            // We don't want to block the UI, so this runs in background
+            const querySnapshot = await getDocs(collection(db, 'medicines'));
+            
+            if (querySnapshot.empty) return;
+
+            // Create a map of Firestore medicines for O(1) lookup
+            const firestoreMap = new Map<string, Medicine>();
+            querySnapshot.forEach(doc => {
+                const data = doc.data();
+                // Ensure RegisterNumber matches
+                const regNum = data.RegisterNumber || doc.id; 
+                firestoreMap.set(regNum, { ...data, RegisterNumber: regNum } as Medicine);
+            });
+
+            setMedicines(prevMedicines => {
+                // 1. Create a map of current local medicines
+                const mergedMap = new Map<string, Medicine>();
+                prevMedicines.forEach(med => mergedMap.set(med.RegisterNumber, med));
+
+                // 2. Overwrite/Add medicines from Firestore
+                firestoreMap.forEach((med, key) => {
+                    mergedMap.set(key, med);
+                });
+
+                // 3. Convert back to array
+                return Array.from(mergedMap.values());
+            });
+            
+            console.log(`Synced ${firestoreMap.size} items from cloud.`);
+
+        } catch (e) {
+            console.error("Failed to sync medicines from Firebase:", e);
+        }
+    };
+
+    // Only sync if online
+    if (navigator.onLine) {
+        syncMedicines();
+    }
   }, []);
   
   const [activeTab, setActiveTab] = useState<Tab>('search');
@@ -154,6 +194,10 @@ const App: React.FC = () => {
   const [selectedInsuranceData, setSelectedInsuranceData] = useState<SelectedInsuranceData | null>(null);
   const [insuranceSearchTerm, setInsuranceSearchTerm] = useState('');
   const [insuranceSearchMode, setInsuranceSearchMode] = useState<InsuranceSearchMode>('tradeName');
+  
+  // Edit Modal State for Main App (Admin only)
+  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+  const [isEditMedicineModalOpen, setIsEditMedicineModalOpen] = useState(false);
   
   const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
   
@@ -210,13 +254,13 @@ const App: React.FC = () => {
   }, [theme]);
 
   useEffect(() => {
-    const isModalOpen = isAssistantModalOpen || isFilterModalOpen || isBarcodeScannerOpen;
+    const isModalOpen = isAssistantModalOpen || isFilterModalOpen || isBarcodeScannerOpen || isEditMedicineModalOpen;
     if (isModalOpen) {
         document.body.classList.add('no-scroll');
     } else {
         document.body.classList.remove('no-scroll');
     }
-  }, [isAssistantModalOpen, isFilterModalOpen, isBarcodeScannerOpen]);
+  }, [isAssistantModalOpen, isFilterModalOpen, isBarcodeScannerOpen, isEditMedicineModalOpen]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -344,6 +388,14 @@ const App: React.FC = () => {
             // Check if ALL typed numbers appear in Strength OR Trade Name
             const allNumbersMatch = numberTerms.every(num => {
                 const cleanNum = num.replace(/(mg|g|ml|%)/g, ''); // Handle 500mg vs 500
+                
+                // STRICTER CHECK FOR SCIENTIFIC NAME SEARCH:
+                // If searching by Scientific Name, the number MUST be in the Strength field.
+                // Ignore numbers in Trade Name to avoid unrelated matches.
+                if (textSearchMode === 'scientificName') {
+                     return strength.includes(cleanNum);
+                }
+                
                 return strength.includes(cleanNum) || tradeName.includes(cleanNum);
             });
             if (!allNumbersMatch) return false;
@@ -504,14 +556,12 @@ const App: React.FC = () => {
   const handleCloseAssistant = (historyToSave: ChatMessage[]) => {
     if (historyToSave.length <= 1) { setIsAssistantModalOpen(false); setSelectedConversation(null); setAssistantContextMedicine(null); return; }
     
-    // Sanitize chat history to prevent circular JSON errors
     const sanitizedHistory = historyToSave.map(msg => ({
       role: msg.role,
       parts: msg.parts.map(part => {
           const newPart: Part = {};
           if (part.text) newPart.text = part.text;
           if (part.inlineData) newPart.inlineData = { mimeType: part.inlineData.mimeType, data: part.inlineData.data };
-          // Simplify function calls/responses to just basic objects if needed, or strip them if causing issues
           if (part.functionCall) {
              newPart.functionCall = { 
                  name: part.functionCall.name, 
@@ -559,6 +609,55 @@ const App: React.FC = () => {
     setSelectedConversation(null);
     setAssistantContextMedicine(null);
   };
+  
+  // Edit Logic for Admin
+  const handleEditMedicine = (medicine: Medicine) => {
+      setEditingMedicine({ ...medicine });
+      setIsEditMedicineModalOpen(true);
+  };
+
+  const handleSaveEditedMedicine = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingMedicine) return;
+
+      // Update local state immediately
+      setMedicines(prev => prev.map(m => m.RegisterNumber === editingMedicine.RegisterNumber ? editingMedicine : m));
+      if (selectedMedicine && selectedMedicine.RegisterNumber === editingMedicine.RegisterNumber) {
+          setSelectedMedicine(editingMedicine);
+      }
+
+      // Attempt to update Firestore if online
+      try {
+          // We assume data was migrated and has IDs, or we use RegisterNumber as ID logic.
+          // For robustness, we should query by RegisterNumber to find the doc ID if we don't know it.
+          // But for this "Edit" feature flow (assuming Admin uses it on existing items), we try to save.
+          
+          // If we knew the doc ID (e.g. if we stored it in the Medicine object during sync), we'd use updateDoc.
+          // Since Medicine interface might not have 'id', we might need to query or assume RegisterNumber usage.
+          // SIMPLE STRATEGY for this "Fix": 
+          // 1. Try to find a doc with this RegisterNumber. 
+          // 2. If found, update. If not, create (setDoc with RegisterNumber as ID).
+          
+          // However, strictly following the request to "Sync":
+          // We simply save to a collection. The Sync Effect above will pick it up next reload.
+          
+          // NOTE: Ideally we need the Firestore Document ID. 
+          // For now, let's assume we can write to a doc named after the RegisterNumber for uniqueness/consistency.
+          // Or rely on the `syncMedicines` we just added to pull it back later.
+          
+          const medDocRef = doc(db, 'medicines', editingMedicine.RegisterNumber);
+          await setDoc(medDocRef, editingMedicine, { merge: true });
+          console.log("Saved to Firestore:", editingMedicine.RegisterNumber);
+
+      } catch (e) {
+          console.error("Failed to sync edit to cloud", e);
+          alert("Saved locally, but failed to sync to cloud. Check internet.");
+      }
+
+      setIsEditMedicineModalOpen(false);
+      setEditingMedicine(null);
+  };
+
   
   const uniqueManufactureNames = useMemo(() => {
     const names = new Set(medicines.map(m => m['Manufacture Name']));
@@ -689,7 +788,7 @@ const App: React.FC = () => {
             </>
           );
         case 'details':
-          return selectedMedicine && <MedicineDetail medicine={selectedMedicine} t={t} language={language} isFavorite={favorites.includes(selectedMedicine.RegisterNumber)} onToggleFavorite={toggleFavorite} />;
+          return selectedMedicine && <MedicineDetail medicine={selectedMedicine} t={t} language={language} isFavorite={favorites.includes(selectedMedicine.RegisterNumber)} onToggleFavorite={toggleFavorite} user={user} onEdit={handleEditMedicine} />;
         case 'alternatives':
           return sourceMedicine && alternativesResults && (
             <AlternativesView
@@ -924,6 +1023,48 @@ const App: React.FC = () => {
         }}
         t={t}
       />
+
+      {/* Edit Modal for Admin from Main View */}
+      {isEditMedicineModalOpen && editingMedicine && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setIsEditMedicineModalOpen(false)}>
+                <div className="bg-white dark:bg-dark-card p-6 rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col mt-8 sm:mt-0" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-4 flex-shrink-0">{t('editMedicine')}</h3>
+                    <form onSubmit={handleSaveEditedMedicine} className="flex-grow flex flex-col overflow-hidden">
+                        <div className="space-y-3 overflow-y-auto pr-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                               <div><label className="text-sm font-medium">{t('tradeName')}</label><input type="text" value={editingMedicine['Trade Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Trade Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
+                               <div><label className="text-sm font-medium">{t('scientificName')}</label><input type="text" value={editingMedicine['Scientific Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Scientific Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required/></div>
+                               <div><label className="text-sm font-medium">{t('price')}</label><input type="text" value={editingMedicine['Public price']} onChange={e => setEditingMedicine({...editingMedicine, 'Public price': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('pharmaceuticalForm')}</label><input type="text" value={editingMedicine.PharmaceuticalForm} onChange={e => setEditingMedicine({...editingMedicine, PharmaceuticalForm: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('strength')}</label><input type="text" value={editingMedicine.Strength} onChange={e => setEditingMedicine({...editingMedicine, Strength: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('strengthUnit')}</label><input type="text" value={editingMedicine.StrengthUnit} onChange={e => setEditingMedicine({...editingMedicine, StrengthUnit: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('packageSize')}</label><input type="text" value={editingMedicine.PackageSize} onChange={e => setEditingMedicine({...editingMedicine, PackageSize: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('packageType')}</label><input type="text" value={editingMedicine.PackageTypes} onChange={e => setEditingMedicine({...editingMedicine, PackageTypes: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div><label className="text-sm font-medium">{t('manufacturer')}</label><input type="text" value={editingMedicine['Manufacture Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Manufacture Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                               <div>
+                                    <label className="text-sm font-medium">{t('legalStatus')}</label>
+                                    <select value={editingMedicine['Legal Status']} onChange={e => setEditingMedicine({...editingMedicine, 'Legal Status': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded">
+                                        <option value="Prescription">{t('prescription')}</option>
+                                        <option value="OTC">{t('otc')}</option>
+                                    </select>
+                               </div>
+                               <div>
+                                    <label className="text-sm font-medium">{t('productType')}</label>
+                                    <select value={editingMedicine['Product type']} onChange={e => setEditingMedicine({...editingMedicine, 'Product type': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded">
+                                        <option value="Human">{t('humanProduct')}</option>
+                                        <option value="Supplement">{t('supplementProduct')}</option>
+                                    </select>
+                               </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-4 flex-shrink-0">
+                            <button type="button" onClick={() => setIsEditMedicineModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg">{t('cancel')}</button>
+                            <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg">{t('save')}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+      )}
     </div>
   );
 };

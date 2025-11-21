@@ -1,6 +1,7 @@
 import React from 'react';
-import { Medicine, TFunction, Language } from '../types';
+import { Medicine, TFunction, Language, User } from '../types';
 import StarIcon from './icons/StarIcon';
+import EditIcon from './icons/EditIcon';
 
 const DetailRow: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => {
   if (!value || String(value).trim() === '') return null;
@@ -36,7 +37,17 @@ const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFun
 };
 
 
-const MedicineDetail: React.FC<{ medicine: Medicine; t: TFunction; language: Language; isFavorite: boolean; onToggleFavorite: (medicineId: string) => void; }> = ({ medicine, t, language, isFavorite, onToggleFavorite }) => {
+interface MedicineDetailProps {
+    medicine: Medicine;
+    t: TFunction;
+    language: Language;
+    isFavorite: boolean;
+    onToggleFavorite: (medicineId: string) => void;
+    user?: User | null;
+    onEdit?: (medicine: Medicine) => void;
+}
+
+const MedicineDetail: React.FC<MedicineDetailProps> = ({ medicine, t, language, isFavorite, onToggleFavorite, user, onEdit }) => {
   const price = parseFloat(medicine['Public price']);
   const scientificName = medicine['Scientific Name'];
   const strengths = medicine.Strength;
@@ -54,15 +65,28 @@ const MedicineDetail: React.FC<{ medicine: Medicine; t: TFunction; language: Lan
         <div className="px-2 sm:px-0">
           <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl md:text-2xl font-bold leading-7 text-light-text dark:text-dark-text">{medicine['Trade Name']}</h2>
-              <button
-                onClick={() => onToggleFavorite(medicine.RegisterNumber)}
-                className={`p-2 rounded-full transition-colors ${isFavorite ? 'text-accent bg-accent/10' : 'text-gray-400 bg-gray-100 dark:bg-slate-800'}`}
-                title={isFavorite ? t('removeFromFavorites') : t('addToFavorites')}
-              >
-                  <div className="h-6 w-6">
-                    <StarIcon isFilled={isFavorite} />
-                  </div>
-              </button>
+              <div className="flex items-center gap-2">
+                  {user?.role === 'admin' && onEdit && (
+                      <button
+                          onClick={() => onEdit(medicine)}
+                          className="p-2 rounded-full transition-colors text-gray-400 bg-gray-100 dark:bg-slate-800 hover:text-primary hover:bg-primary/10"
+                          title={t('editMedicine')}
+                      >
+                          <div className="h-6 w-6">
+                              <EditIcon />
+                          </div>
+                      </button>
+                  )}
+                  <button
+                    onClick={() => onToggleFavorite(medicine.RegisterNumber)}
+                    className={`p-2 rounded-full transition-colors ${isFavorite ? 'text-accent bg-accent/10' : 'text-gray-400 bg-gray-100 dark:bg-slate-800'}`}
+                    title={isFavorite ? t('removeFromFavorites') : t('addToFavorites')}
+                  >
+                      <div className="h-6 w-6">
+                        <StarIcon isFilled={isFavorite} />
+                      </div>
+                  </button>
+              </div>
           </div>
           
           {hasMultipleIngredients ? (
