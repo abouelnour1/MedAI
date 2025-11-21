@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { TFunction, User, Medicine, AppSettings, InsuranceDrug } from '../../types';
+import { TFunction, User, Medicine, AppSettings, InsuranceDrug, Cosmetic } from '../../types';
 import { useAuth } from './AuthContext';
 import ChartIcon from '../icons/ChartIcon';
 import UsersIcon from '../icons/UsersIcon';
@@ -34,9 +34,10 @@ interface AdminDashboardProps {
   setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
   insuranceData: InsuranceDrug[];
   setInsuranceData: React.Dispatch<React.SetStateAction<InsuranceDrug[]>>;
+  cosmetics: Cosmetic[];
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines, setMedicines, insuranceData, setInsuranceData }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines, setMedicines, insuranceData, setInsuranceData, cosmetics = [] }) => {
   const { updateUser, deleteUser, getSettings, updateSettings } = useAuth();
   const [activePanel, setActivePanel] = useState<Panel>('overview');
   
@@ -282,7 +283,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
              return;
         }
         
-        const allInsurance = [...INITIAL_INSURANCE_DATA, ...CUSTOM_INSURANCE_DATA];
+        const allInsurance = [...insuranceData];
         await uploadCollection('insurance', allInsurance);
       } catch (error: any) {
           alert("Error preparing data: " + error.message);
@@ -297,11 +298,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
             setMigrationStatus("Migration cancelled.");
             return;
         }
-        await uploadCollection('cosmetics', INITIAL_COSMETICS_DATA);
+        await uploadCollection('cosmetics', cosmetics);
       } catch (error: any) {
           alert("Error preparing data: " + error.message);
           setIsMigrating(false);
       }
+  };
+  
+  const handleDownloadData = () => {
+      try {
+          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allMedicines, null, 2));
+          const downloadAnchorNode = document.createElement('a');
+          downloadAnchorNode.setAttribute("href", dataStr);
+          downloadAnchorNode.setAttribute("download", "medicines_export.json");
+          document.body.appendChild(downloadAnchorNode);
+          downloadAnchorNode.click();
+          downloadAnchorNode.remove();
+      } catch (e) {
+          alert("Error exporting data: " + e);
+      }
+  };
+
+  const handleDownloadInsuranceData = () => {
+    try {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(insuranceData, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "insurance_data_export.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    } catch (e) {
+        alert("Error exporting insurance data: " + e);
+    }
+  };
+
+  const handleDownloadCosmeticsData = () => {
+    try {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cosmetics, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "cosmetics_data_export.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    } catch (e) {
+        alert("Error exporting cosmetics data: " + e);
+    }
   };
 
 
@@ -552,15 +595,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                             </div>
                             <div className="flex-grow">
                                 <h4 className="font-bold text-lg text-light-text dark:text-dark-text">Medicines & Supplements</h4>
-                                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mt-1">{medCount} items</p>
+                                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mt-1">{allMedicines.length} items in memory</p>
                             </div>
-                            <button
-                                onClick={handleMigrateMedicines}
-                                disabled={isMigrating || isMigrationLocked}
-                                className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-2"
-                            >
-                                Start Migration
-                            </button>
+                            <div className="w-full space-y-2">
+                                <button
+                                    onClick={handleMigrateMedicines}
+                                    disabled={isMigrating || isMigrationLocked}
+                                    className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                >
+                                    Start Migration
+                                </button>
+                                <button
+                                    onClick={handleDownloadData}
+                                    className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Export Full Data (JSON)
+                                </button>
+                            </div>
                         </div>
 
                          {/* Insurance Card */}
@@ -572,13 +624,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                                 <h4 className="font-bold text-lg text-light-text dark:text-dark-text">Insurance Data</h4>
                                 <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mt-1">{insCount} items</p>
                             </div>
-                             <button
-                                onClick={handleMigrateInsurance}
-                                disabled={isMigrating || isMigrationLocked}
-                                className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-2"
-                            >
-                                Start Migration
-                            </button>
+                            <div className="w-full space-y-2">
+                                <button
+                                    onClick={handleMigrateInsurance}
+                                    disabled={isMigrating || isMigrationLocked}
+                                    className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                >
+                                    Start Migration
+                                </button>
+                                <button
+                                    onClick={handleDownloadInsuranceData}
+                                    className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Export Full Data (JSON)
+                                </button>
+                            </div>
                         </div>
 
                          {/* Cosmetics Card */}
@@ -588,15 +649,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                             </div>
                             <div className="flex-grow">
                                 <h4 className="font-bold text-lg text-light-text dark:text-dark-text">Cosmetics Data</h4>
-                                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mt-1">{cosCount} items</p>
+                                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mt-1">{cosmetics.length} items</p>
                             </div>
-                             <button
-                                onClick={handleMigrateCosmetics}
-                                disabled={isMigrating || isMigrationLocked}
-                                className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-2"
-                            >
-                                Start Migration
-                            </button>
+                            <div className="w-full space-y-2">
+                                <button
+                                    onClick={handleMigrateCosmetics}
+                                    disabled={isMigrating || isMigrationLocked}
+                                    className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                >
+                                    Start Migration
+                                </button>
+                                <button
+                                    onClick={handleDownloadCosmeticsData}
+                                    className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Export Full Data (JSON)
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -672,7 +742,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                                         <option value="Human">{t('humanProduct')}</option>
                                         <option value="Supplement">{t('supplementProduct')}</option>
                                     </select>
-                               </div>
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 pt-4 flex-shrink-0">

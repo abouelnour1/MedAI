@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Medicine, View, Filters, TextSearchMode, Language, TFunction, Tab, SortByOption, Conversation, ChatMessage, InsuranceDrug, PrescriptionData, SelectedInsuranceData, InsuranceSearchMode, Cosmetic } from './types';
 import Header from './components/Header';
@@ -95,17 +96,28 @@ const normalizeProduct = (product: any): Medicine => {
 };
 
 const FAVORITES_STORAGE_KEY = 'saudi_drug_directory_favorites';
+const MEDICINES_CACHE_KEY = 'saudi_drug_directory_medicines_cache';
 
 const App: React.FC = () => {
   const { user, requestAIAccess, isLoading: isAuthLoading } = useAuth();
 
-  // Initialize with static data immediately for instant load
+  // Initialize with Persistent Data (Cache first, then Static)
   const [medicines, setMedicines] = useState<Medicine[]>(() => {
+     try {
+         const cached = localStorage.getItem(MEDICINES_CACHE_KEY);
+         if (cached) {
+             return JSON.parse(cached);
+         }
+     } catch (e) {
+         console.error("Failed to load medicines from cache", e);
+     }
+     // Fallback to static data
      const initialSupplements = SUPPLEMENT_DATA_RAW.map(normalizeProduct);
      return [...MEDICINE_DATA, ...initialSupplements];
   });
   
   const [insuranceData, setInsuranceData] = useState<InsuranceDrug[]>(() => {
+     // Future: Add caching for insurance data similar to medicines
      return [...INITIAL_INSURANCE_DATA, ...CUSTOM_INSURANCE_DATA].map((item, index) => ({ ...item, id: `ins-item-${Date.now()}-${index}` }));
   });
   
@@ -140,7 +152,16 @@ const App: React.FC = () => {
                 });
 
                 // 3. Convert back to array
-                return Array.from(mergedMap.values());
+                const mergedArray = Array.from(mergedMap.values());
+                
+                // 4. Save to LocalStorage for offline persistence
+                try {
+                    localStorage.setItem(MEDICINES_CACHE_KEY, JSON.stringify(mergedArray));
+                } catch (e) {
+                    console.error("Failed to cache merged medicines", e);
+                }
+
+                return mergedArray;
             });
             
             console.log(`Synced ${firestoreMap.size} items from cloud.`);
@@ -461,7 +482,12 @@ const App: React.FC = () => {
 
   const handleImportData = (data: any[]): void => {
     const normalizedData = data.map(normalizeProduct);
-    setMedicines(prevMeds => [...prevMeds, ...normalizedData]);
+    setMedicines(prevMeds => {
+        const updated = [...prevMeds, ...normalizedData];
+        // Update cache on import
+        localStorage.setItem(MEDICINES_CACHE_KEY, JSON.stringify(updated));
+        return updated;
+    });
     setView('settings');
   };
 
@@ -616,42 +642,34 @@ const App: React.FC = () => {
       setIsEditMedicineModalOpen(true);
   };
 
-  const handleSaveEditedMedicine = async (e: React.FormEvent) => {
-      e.preventDefault();
+  const handleSaveEditedMedicine = async (syncToCloud: boolean) => {
       if (!editingMedicine) return;
 
-      // Update local state immediately
-      setMedicines(prev => prev.map(m => m.RegisterNumber === editingMedicine.RegisterNumber ? editingMedicine : m));
+      // 1. Update local state immediately
+      setMedicines(prev => {
+          const updated = prev.map(m => m.RegisterNumber === editingMedicine.RegisterNumber ? editingMedicine : m);
+          // Update cache immediately after edit
+          localStorage.setItem(MEDICINES_CACHE_KEY, JSON.stringify(updated));
+          return updated;
+      });
+
       if (selectedMedicine && selectedMedicine.RegisterNumber === editingMedicine.RegisterNumber) {
           setSelectedMedicine(editingMedicine);
       }
 
-      // Attempt to update Firestore if online
-      try {
-          // We assume data was migrated and has IDs, or we use RegisterNumber as ID logic.
-          // For robustness, we should query by RegisterNumber to find the doc ID if we don't know it.
-          // But for this "Edit" feature flow (assuming Admin uses it on existing items), we try to save.
-          
-          // If we knew the doc ID (e.g. if we stored it in the Medicine object during sync), we'd use updateDoc.
-          // Since Medicine interface might not have 'id', we might need to query or assume RegisterNumber usage.
-          // SIMPLE STRATEGY for this "Fix": 
-          // 1. Try to find a doc with this RegisterNumber. 
-          // 2. If found, update. If not, create (setDoc with RegisterNumber as ID).
-          
-          // However, strictly following the request to "Sync":
-          // We simply save to a collection. The Sync Effect above will pick it up next reload.
-          
-          // NOTE: Ideally we need the Firestore Document ID. 
-          // For now, let's assume we can write to a doc named after the RegisterNumber for uniqueness/consistency.
-          // Or rely on the `syncMedicines` we just added to pull it back later.
-          
-          const medDocRef = doc(db, 'medicines', editingMedicine.RegisterNumber);
-          await setDoc(medDocRef, editingMedicine, { merge: true });
-          console.log("Saved to Firestore:", editingMedicine.RegisterNumber);
-
-      } catch (e) {
-          console.error("Failed to sync edit to cloud", e);
-          alert("Saved locally, but failed to sync to cloud. Check internet.");
+      // 2. Attempt to update Firestore ONLY if syncToCloud is true
+      if (syncToCloud) {
+          try {
+              const medDocRef = doc(db, 'medicines', editingMedicine.RegisterNumber);
+              await setDoc(medDocRef, editingMedicine, { merge: true });
+              alert("Medicine saved locally AND synced to Cloud Firestore.");
+          } catch (e) {
+              console.error("Failed to sync edit to cloud", e);
+              alert("Saved locally, but failed to sync to cloud. Check internet.");
+          }
+      } else {
+          // alert("Saved locally only."); 
+          // Optional feedback, kept silent for speed as requested by user preference for "Save Local" usually implies speed.
       }
 
       setIsEditMedicineModalOpen(false);
@@ -895,7 +913,7 @@ const App: React.FC = () => {
         case 'addCosmeticsData':
             return <AddCosmeticsDataView onImport={handleImportCosmeticsData} t={t} />;
         case 'admin':
-            return user?.role === 'admin' ? <AdminDashboard t={t} allMedicines={medicines} setMedicines={setMedicines} insuranceData={insuranceData} setInsuranceData={setInsuranceData} /> : null;
+            return user?.role === 'admin' ? <AdminDashboard t={t} allMedicines={medicines} setMedicines={setMedicines} insuranceData={insuranceData} setInsuranceData={setInsuranceData} cosmetics={cosmetics} /> : null;
         case 'favorites':
           return <FavoritesView
               favoriteIds={favorites}
@@ -1029,7 +1047,7 @@ const App: React.FC = () => {
             <div className="fixed inset-0 z-50 bg-black/50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setIsEditMedicineModalOpen(false)}>
                 <div className="bg-white dark:bg-dark-card p-6 rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col mt-8 sm:mt-0" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4 flex-shrink-0">{t('editMedicine')}</h3>
-                    <form onSubmit={handleSaveEditedMedicine} className="flex-grow flex flex-col overflow-hidden">
+                    <form onSubmit={(e) => e.preventDefault()} className="flex-grow flex flex-col overflow-hidden">
                         <div className="space-y-3 overflow-y-auto pr-2">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                <div><label className="text-sm font-medium">{t('tradeName')}</label><input type="text" value={editingMedicine['Trade Name']} onChange={e => setEditingMedicine({...editingMedicine, 'Trade Name': e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
@@ -1057,9 +1075,13 @@ const App: React.FC = () => {
                                </div>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-2 pt-4 flex-shrink-0">
-                            <button type="button" onClick={() => setIsEditMedicineModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg">{t('cancel')}</button>
-                            <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg">{t('save')}</button>
+                        <div className="flex flex-wrap justify-end gap-2 pt-4 flex-shrink-0 border-t border-gray-200 dark:border-slate-700 mt-2">
+                            <button type="button" onClick={() => setIsEditMedicineModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg text-sm font-medium">{t('cancel')}</button>
+                            <button type="button" onClick={() => handleSaveEditedMedicine(false)} className="px-4 py-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-lg text-sm font-medium">Save Locally Only</button>
+                            <button type="button" onClick={() => handleSaveEditedMedicine(true)} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-sm flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                                Save & Sync to Cloud
+                            </button>
                         </div>
                     </form>
                 </div>
