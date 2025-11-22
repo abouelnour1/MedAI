@@ -38,18 +38,34 @@ const CosmeticsView: React.FC<CosmeticsViewProps> = ({
       results = results.filter(c => c.BrandName === selectedBrand);
     }
 
-    if (searchTerm.trim().length >= 2) {
+    // Logic Update: Only trigger if effective length (excluding %) is >= 3
+    const effectiveLength = searchTerm.replace(/%/g, '').trim().length;
+
+    if (effectiveLength >= 3) {
       const lowerSearchTerm = searchTerm.toLowerCase().trim();
-      results = results.filter(c =>
-        c.SpecificName.toLowerCase().includes(lowerSearchTerm) ||
-        c.SpecificNameAr.toLowerCase().includes(lowerSearchTerm)
-      );
+      
+      const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const parts = lowerSearchTerm.split('%').map(escapeRegExp);
+      // If no wildcard, force start-of-string match
+      const prefix = lowerSearchTerm.includes('%') ? '' : '^';
+      const pattern = prefix + parts.join('.*');
+      
+      let searchRegex: RegExp;
+      try {
+          searchRegex = new RegExp(pattern, 'i');
+      } catch (e) {
+          searchRegex = new RegExp(escapeRegExp(lowerSearchTerm), 'i');
+      }
+
+      results = results.filter(c => {
+        return searchRegex.test(c.SpecificName) || searchRegex.test(c.SpecificNameAr);
+      });
     }
     
     return results;
   }, [cosmetics, selectedBrand, searchTerm]);
   
-  const showResults = selectedBrand || searchTerm.trim().length >= 2;
+  const showResults = selectedBrand || searchTerm.replace(/%/g, '').trim().length >= 3;
 
   return (
     <div className="space-y-4 animate-fade-in">

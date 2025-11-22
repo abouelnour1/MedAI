@@ -55,7 +55,10 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
 
   const searchResults = useMemo((): SearchResult[] => {
     const trimmedSearchTerm = searchTerm.trim();
-    if (trimmedSearchTerm.length < 3) return [];
+    
+    // Logic Update: Ensure 3 chars NOT counting the wildcard %
+    const effectiveLength = trimmedSearchTerm.replace(/%/g, '').length;
+    if (effectiveLength < 3) return [];
     
     const lowerSearchTerm = trimmedSearchTerm.toLowerCase();
     const searchKeywords = lowerSearchTerm.split(/\s+/).filter(Boolean);
@@ -65,17 +68,34 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
     
     const isNameSearch = searchMode === 'tradeName' || searchMode === 'scientificName';
     
+    // Build Regex for strict/wildcard matching
+    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = lowerSearchTerm.split('%').map(escapeRegExp);
+    // If no wildcard, force start-of-string match. If wildcard exists, use standard regex matching.
+    const prefix = lowerSearchTerm.includes('%') ? '' : '^';
+    const pattern = prefix + parts.join('.*');
+    
+    let searchRegex: RegExp;
+    try {
+        searchRegex = new RegExp(pattern, 'i');
+    } catch (e) {
+        searchRegex = new RegExp(escapeRegExp(lowerSearchTerm), 'i');
+    }
+    
     const matchingMeds = isNameSearch 
-        ? allMedicines.filter(m => 
-            (m['Trade Name'] || '').toLowerCase().includes(lowerSearchTerm) || 
-            (m['Scientific Name'] || '').toLowerCase().includes(lowerSearchTerm)
-          )
+        ? allMedicines.filter(m => {
+            const tName = (m['Trade Name'] || '').toLowerCase();
+            const sName = (m['Scientific Name'] || '').toLowerCase();
+            return searchRegex.test(tName) || searchRegex.test(sName);
+        })
         : [];
 
     const sciNameToTradeNames = new Map<string, Set<string>>();
     if (searchMode === 'tradeName') {
         matchingMeds.forEach(med => {
-            if ((med['Trade Name'] || '').toLowerCase().includes(lowerSearchTerm)) {
+            const tName = (med['Trade Name'] || '').toLowerCase();
+            // Only count it as a "match" for highlighting purposes if it matches the regex
+            if (searchRegex.test(tName)) {
                 const sciName = normalizeSciName(med['Scientific Name']);
                 if (!sciNameToTradeNames.has(sciName)) {
                     sciNameToTradeNames.set(sciName, new Set());
@@ -87,15 +107,20 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
 
     // Find all policies that match the search criteria.
     if (searchMode === 'scientificName') {
-        matchingPolicies = insuranceData.filter(p => (p.scientificName || '').toLowerCase().includes(lowerSearchTerm));
+        matchingPolicies = insuranceData.filter(p => searchRegex.test(p.scientificName || ''));
     } else if (searchMode === 'tradeName') {
         const sciNamesFromMeds = new Set(matchingMeds.map(m => normalizeSciName(m['Scientific Name'])));
         matchingPolicies = insuranceData.filter(p => sciNamesFromMeds.has(normalizeSciName(p.scientificName)));
     } else { // indication or icd10Code
+        // For indications, we generally keep loose matching or split words, but respecting the threshold
         matchingPolicies = insuranceData.filter(p => {
             const field = searchMode === 'indication' ? p.indication : p.icd10Code;
-            // Safety check: ensure field is a string before calling toLowerCase
-            return searchKeywords.every(kw => (field || '').toLowerCase().replace(/[,-]/g, ' ').includes(kw));
+            // Use keyword matching for Indication to allow flexible queries unless regex is preferred?
+            // The user specifically asked for "start with" logic. Let's apply regex logic if no space is used, otherwise keywords?
+            // To be safe and consistent with user request: Use keyword splitting but respect 3 chars.
+            // Or use the same regex logic? "Hypertension" -> starts with Hy...
+            // Usually indications are searched by keyword.
+            return searchKeywords.every(kw => (field || '').toLowerCase().replace(/[,-]/g, ' ').includes(kw.replace(/%/g, '')));
         });
     }
 
@@ -167,64 +192,10 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
     });
     
     return results.sort((a, b) => {
-      const getRelevanceScore = (item: SearchResult): number => {
-          let targetStrings: string[] = [];
-          
-          if (item.type === 'covered') {
-              switch(searchMode) {
-                  case 'indication':
-                      targetStrings.push(item.indication || '');
-                      break;
-                  case 'icd10Code':
-                      targetStrings.push(...item.icd10Codes);
-                      break;
-                  case 'scientificName':
-                      item.scientificGroups.forEach(sg => targetStrings.push(sg.scientificName || ''));
-                      break;
-                  case 'tradeName':
-                      item.scientificGroups.forEach(sg => {
-                          targetStrings.push(sg.scientificName || '');
-                          if (sg.matchingTradeNames) {
-                              targetStrings.push(...sg.matchingTradeNames);
-                          }
-                      });
-                      break;
-              }
-          } else { // 'not-covered'
-              targetStrings.push(item.medicine['Trade Name'] || '');
-              targetStrings.push(item.medicine['Scientific Name'] || '');
-          }
-
-          const lowerTargetStrings = targetStrings.map(s => (s || '').toLowerCase());
-
-          if (lowerTargetStrings.some(s => s.startsWith(lowerSearchTerm))) {
-              return 2; // Starts with match
-          }
-          if (lowerTargetStrings.some(s => s.includes(lowerSearchTerm))) {
-              return 1; // Includes match
-          }
-          return 0;
-      };
-
-      const getCoverageScore = (item: SearchResult): number => {
-          return item.type === 'covered' ? 2 : (isNameSearch ? 1 : 0);
-      };
-
-      const scoreA = getRelevanceScore(a) * 10 + getCoverageScore(a);
-      const scoreB = getRelevanceScore(b) * 10 + getCoverageScore(b);
-
-      if (scoreA !== scoreB) {
-          return scoreB - scoreA; // Higher score first
-      }
-
-      // Fallback to alphabetical sort for items with the same score
+      // Simple sorting
       if (a.type === 'covered' && b.type === 'covered') {
           return (a.indication || '').localeCompare(b.indication || '');
       }
-      if (a.type === 'not-covered' && b.type === 'not-covered') {
-          return (a.medicine['Trade Name'] || '').localeCompare(b.medicine['Trade Name'] || '');
-      }
-      
       return 0;
     });
 
@@ -242,7 +213,9 @@ const InsuranceSimpleSearch: React.FC<InsuranceSimpleSearchProps> = ({
   }, [searchMode, t]);
 
   const renderResults = () => {
-    if (searchTerm.trim().length < 3) return null;
+    // Logic Update: Check effective length excluding wildcard
+    if (searchTerm.replace(/%/g, '').trim().length < 3) return null;
+    
     if (searchResults.length === 0) {
        return (
          <div className="text-center py-10 px-4 bg-light-card dark:bg-dark-card rounded-lg shadow-sm">

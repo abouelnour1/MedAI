@@ -1,13 +1,14 @@
+
 import React from 'react';
 
 const HealthInsuranceIcon: React.FC = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     className="h-full w-full"
-    fill="none"
     viewBox="0 0 24 24"
+    fill="none"
     stroke="currentColor"
-    strokeWidth={1.5}
+    strokeWidth={2}
   >
     <path 
       strokeLinecap="round" 

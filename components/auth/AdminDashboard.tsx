@@ -17,7 +17,7 @@ import { INITIAL_INSURANCE_DATA } from '../../data/insurance-data';
 import { CUSTOM_INSURANCE_DATA } from '../../data/custom-insurance-data';
 import { INITIAL_COSMETICS_DATA } from '../../data/cosmetics-data';
 
-type Panel = 'overview' | 'users' | 'medicines' | 'insurance' | 'cosmetics' | 'settings' | 'migration';
+type Panel = 'overview' | 'users' | 'medicines' | 'insurance' | 'cosmetics' | 'settings' | 'migration' | 'notifications';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl flex items-center gap-4">
@@ -65,6 +65,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
 
   // Settings State
   const [appSettings, setAppSettings] = useState<AppSettings>(getSettings());
+  
+  // Notification State
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifBody, setNotifBody] = useState('');
+  const [isSendingNotif, setIsSendingNotif] = useState(false);
   
   // Migration State
   const [migrationStatus, setMigrationStatus] = useState<string>('');
@@ -285,6 +290,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
     const newSettings = {...appSettings, [key]: value};
     setAppSettings(newSettings);
     updateSettings(newSettings);
+  };
+  
+  const handleSendNotification = async () => {
+      if (!notifTitle || !notifBody) {
+          alert("Please enter a title and body.");
+          return;
+      }
+      setIsSendingNotif(true);
+      // This simulates the data preparation. 
+      // IMPORTANT: Actual sending requires a secure backend environment (Cloud Function)
+      // to use the Firebase Admin SDK. The frontend cannot securely send to a topic.
+      try {
+          console.log("Preparing to send notification:", { title: notifTitle, body: notifBody, topic: "all_users" });
+          
+          // Simulation delay
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          alert("Notification queued! (Note: This requires a deployed Cloud Function to physically send to devices. Check console for payload.)");
+          setNotifTitle("");
+          setNotifBody("");
+      } catch (e) {
+          console.error("Failed to send", e);
+          alert("Failed to send notification.");
+      } finally {
+          setIsSendingNotif(false);
+      }
   };
 
   // --- MIGRATION LOGIC ---
@@ -691,6 +722,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                 </div>
             </div>
         );
+        case 'notifications':
+            return (
+                <div className="space-y-6">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                            {t('broadcastTitle')}
+                        </h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1">{t('notificationTitle')}</label>
+                                <input type="text" value={notifTitle} onChange={e => setNotifTitle(e.target.value)} className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700" placeholder="e.g. New Offer!" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1">{t('notificationBody')}</label>
+                                <textarea value={notifBody} onChange={e => setNotifBody(e.target.value)} className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700" rows={3} placeholder="e.g. 50% off on all vitamins today." />
+                            </div>
+                            <div className="flex justify-end">
+                                <button onClick={handleSendNotification} disabled={isSendingNotif} className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-2">
+                                    {isSendingNotif ? 'Sending...' : t('sendBroadcast')}
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-2">
+                                Note: All subscribed devices will receive this notification. Ensure backend Cloud Function is deployed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
         case 'migration':
             const medCount = MEDICINE_DATA.length + SUPPLEMENT_DATA_RAW.length;
             const insCount = INITIAL_INSURANCE_DATA.length + CUSTOM_INSURANCE_DATA.length;
@@ -827,6 +888,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
                 <button onClick={() => setActivePanel('medicines')} className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePanel === 'medicines' ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>{t('adminPanelMedicines')}</button>
                 <button onClick={() => setActivePanel('insurance')} className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePanel === 'insurance' ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>{t('adminPanelInsurance')}</button>
                 <button onClick={() => setActivePanel('cosmetics')} className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePanel === 'cosmetics' ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>Cosmetics</button>
+                <button onClick={() => setActivePanel('notifications')} className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePanel === 'notifications' ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>{t('broadcastTitle')}</button>
                 <button onClick={() => setActivePanel('settings')} className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePanel === 'settings' ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>{t('adminPanelSettings')}</button>
                 <button onClick={() => setActivePanel('migration')} className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePanel === 'migration' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>Migration Tool</button>
             </nav>
@@ -836,7 +898,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ t, allMedicines,
       {/* Main Content Area */}
       <main className="flex-grow bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm overflow-hidden flex flex-col">
         <h3 className="text-2xl font-bold mb-6 pb-4 border-b border-slate-100 dark:border-slate-800 capitalize">
-            {activePanel === 'migration' ? 'Migration Tool' : activePanel === 'cosmetics' ? 'Cosmetics Management' : t(`adminPanel${activePanel.charAt(0).toUpperCase() + activePanel.slice(1)}` as any)}
+            {activePanel === 'migration' ? 'Migration Tool' : activePanel === 'cosmetics' ? 'Cosmetics Management' : activePanel === 'notifications' ? t('broadcastTitle') : t(`adminPanel${activePanel.charAt(0).toUpperCase() + activePanel.slice(1)}` as any)}
         </h3>
         <div className="flex-grow overflow-y-auto">
             {renderPanel()}

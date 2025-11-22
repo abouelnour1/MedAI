@@ -20,15 +20,21 @@ const NavItem: React.FC<{
   isActive: boolean;
   onClick: () => void;
 }> = ({ label, icon, isActive, onClick }) => {
-  const activeClasses = isActive ? 'text-primary' : 'text-gray-400 dark:text-slate-500';
-
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center w-full h-full transition-colors duration-200 ${activeClasses} hover:text-primary dark:hover:text-primary-light`}
+      className={`flex flex-col items-center justify-center w-full h-full transition-colors duration-200 group ${
+        isActive 
+          ? 'text-primary dark:text-primary-light' 
+          : 'text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300'
+      }`}
     >
-      <div className="w-6 h-6 mb-1">{icon}</div>
-      <span className={`text-[10px] font-semibold leading-none ${isActive ? 'text-primary dark:text-primary-light' : ''}`}>{label}</span>
+      <div className={`w-6 h-6 mb-1 transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+        {icon}
+      </div>
+      <span className="text-[10px] font-medium tracking-wide">
+        {label}
+      </span>
     </button>
   );
 };
@@ -37,15 +43,14 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, setActiveTab, t,
   const navItems = [
     { id: 'search', labelKey: t('navSearch'), icon: <SearchIcon /> },
     { id: 'insurance', labelKey: t('navInsurance'), icon: <HealthInsuranceIcon /> },
-    // Only show Prescriptions for Admin
     ...(user?.role === 'admin' ? [{ id: 'prescriptions', labelKey: t('navPrescriptions'), icon: <ReceiptIcon /> }] : []),
     { id: 'cosmetics', labelKey: t('navCosmetics'), icon: <CosmeticsIcon /> },
     { id: 'settings', labelKey: t('navSettings'), icon: <SettingsIcon /> },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-light-card/95 dark:bg-dark-card/95 backdrop-blur-lg border-t border-slate-200/50 dark:border-slate-800/50 z-30 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-2">
-      <div className="flex justify-around items-center h-12 max-w-2xl mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-card border-t border-gray-200 dark:border-slate-800 shadow-lg z-30 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2">
+      <div className="flex justify-around items-center h-14 max-w-2xl mx-auto px-2">
         {navItems.map(item => (
           <NavItem
             key={item.id}

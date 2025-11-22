@@ -66,7 +66,6 @@ export const translations = {
     promptPregnancy: 'هل هو آمن للحمل والرضاعة؟',
     promptUsage: 'كيف يتم استخدامه؟',
     promptGuidelines: 'ما هي أحدث الإرشادات؟',
-    geminiLoading: 'جاري التفكير...',
     geminiError: 'عفواً، حدث خطأ. الرجاء المحاولة مرة أخرى.',
     assistantFabTooltip: 'اسأل المساعد الذكي',
     assistantModalTitle: 'المساعد الطبي الذكي',
@@ -320,6 +319,10 @@ export const translations = {
     resetPasswordEmailSent: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني. الرجاء التحقق من صندوق الوارد.',
     enterEmailForReset: 'أدخل بريدك الإلكتروني لاستلام رابط إعادة التعيين',
     invalidEmailFormat: 'الرجاء إدخال بريد إلكتروني صحيح.',
+    broadcastTitle: 'إشعارات عامة',
+    notificationTitle: 'عنوان الإشعار',
+    notificationBody: 'نص الإشعار',
+    sendBroadcast: 'إرسال للجميع',
   },
   en: {
     appTitle: 'Saudi Drug Directory',
@@ -386,7 +389,6 @@ export const translations = {
     promptPregnancy: 'Is it safe for pregnancy?',
     promptUsage: 'How is it used?',
     promptGuidelines: 'What are the latest guidelines?',
-    geminiLoading: 'Thinking...',
     geminiError: 'Sorry, an error occurred. Please try again.',
     assistantFabTooltip: 'Ask AI Assistant',
     assistantModalTitle: 'Smart Medical Assistant',
@@ -641,6 +643,10 @@ export const translations = {
     resetPasswordEmailSent: 'Password reset link sent to your email. Please check your inbox.',
     enterEmailForReset: 'Enter your email to receive a reset link',
     invalidEmailFormat: 'Please enter a valid email address.',
+    broadcastTitle: 'Broadcast Notifications',
+    notificationTitle: 'Notification Title',
+    notificationBody: 'Notification Body',
+    sendBroadcast: 'Send to All',
   }
 };
 

@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence, Firestore } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
+import { getMessaging, Messaging } from "firebase/messaging";
 
 // --- FIREBASE SWITCH ---
 // Set this to TRUE to disconnect Firebase completely.
@@ -22,25 +23,41 @@ const firebaseConfig = {
 let app: any;
 let db: Firestore;
 let auth: Auth;
-let analytics: any;
+let analytics: any = null;
+let messaging: Messaging | null = null;
 
 if (!FIREBASE_DISABLED) {
   // Initialize Firebase
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  auth = getAuth(app);
+  try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+  } catch (e) {
+    console.error("Firebase Core Initialization failed:", e);
+  }
 
   // Initialize Analytics only in browser environment
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && app) {
     try {
       analytics = getAnalytics(app);
     } catch (e) {
-      console.error("Firebase Analytics failed to initialize", e);
+      console.warn("Firebase Analytics failed to initialize (likely blocked by ad-blocker or non-supported env):", e);
+    }
+
+    try {
+      // Only attempt to initialize messaging if Service Workers are supported
+      if ('serviceWorker' in navigator) {
+        messaging = getMessaging(app);
+      } else {
+        console.warn("Service Workers not supported, Messaging disabled.");
+      }
+    } catch (e) {
+      console.warn("Firebase Messaging failed to initialize (Service messaging is not available in this context):", e);
     }
   }
 
   // Enable offline persistence
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && db) {
       enableIndexedDbPersistence(db)
         .catch((err) => {
           if (err.code == 'failed-precondition') {
@@ -57,6 +74,7 @@ if (!FIREBASE_DISABLED) {
   db = null as unknown as Firestore;
   auth = null as unknown as Auth;
   analytics = null;
+  messaging = null;
 }
 
-export { app, db, auth, analytics };
+export { app, db, auth, analytics, messaging };

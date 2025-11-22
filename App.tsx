@@ -40,8 +40,9 @@ import AdminIcon from './components/icons/AdminIcon';
 import StarIcon from './components/icons/StarIcon';
 import FavoritesView from './components/FavoritesView';
 import { isAIAvailable } from './geminiService';
-import { db, FIREBASE_DISABLED } from './firebase';
+import { db, messaging, FIREBASE_DISABLED } from './firebase';
 import { collection, getDocs, updateDoc, doc, setDoc } from 'firebase/firestore';
+import { getToken, onMessage } from 'firebase/messaging';
 import { Part } from '@google/genai';
 
 // Enhanced Normalization to handle Raw JSON keys properly and prevent white screens
@@ -227,6 +228,45 @@ const COSMETICS_CACHE_KEY = 'saudi_drug_directory_cosmetics_cache';
 const App: React.FC = () => {
   const { user, requestAIAccess, isLoading: isAuthLoading } = useAuth();
 
+  // Notification Setup
+  useEffect(() => {
+    if (!FIREBASE_DISABLED && messaging) {
+      const requestNotificationPermission = async () => {
+        try {
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted') {
+            // We need a VAPID key for web push. 
+            // If you don't have one generated in Firebase Console > Cloud Messaging > Web Configuration,
+            // getToken might fail or require one.
+            // Pass it if available, otherwise try without (might work if default config exists)
+            const token = await getToken(messaging!, {
+              vapidKey: "BBMmrZJ0Gz7VzBfX9lZq5Z8zZzZzZzZzZzZzZzZzZzZzZzZzZzZ" // Ensure this is a valid public VAPID key
+            });
+            console.log('Notification Token:', token);
+            // In a real app, you'd send this token to your backend here to subscribe the user to a topic.
+          }
+        } catch (error) {
+          console.log('Notification permission denied or error (VAPID key might be missing/invalid):', error);
+        }
+      };
+
+      requestNotificationPermission();
+
+      // Foreground message handler
+      const unsubscribe = onMessage(messaging, (payload) => {
+        console.log('Message received. ', payload);
+        if (payload.notification) {
+            new Notification(payload.notification.title || 'Notification', {
+                body: payload.notification.body,
+                icon: '/icon.svg'
+            });
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, []);
+
   // Initialize with Persistent Data (Cache first, then Static)
   const [medicines, setMedicines] = useState<Medicine[]>(() => {
      let cachedMeds: Medicine[] = [];
@@ -406,9 +446,11 @@ const App: React.FC = () => {
   const scrollPositionRef = useRef(0);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (localStorage.getItem('theme') === 'dark') {
-        return 'dark';
-    }
+    try {
+        if (localStorage.getItem('theme') === 'dark') {
+            return 'dark';
+        }
+    } catch (e) { /* ignore */ }
     return 'light';
   });
   
@@ -446,12 +488,16 @@ const App: React.FC = () => {
   [medicines, favorites]);
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+    try {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+    } catch (e) {
+      console.error("Failed to save theme", e);
     }
   }, [theme]);
 
@@ -507,7 +553,9 @@ const App: React.FC = () => {
   }, [filters]);
 
   const isSearchActive = useMemo(() => {
-    return Object.values(filters).some(val => Array.isArray(val) ? val.length > 0 : !!val && val !== 'all') || searchTerm.trim().length >= 2 || forceSearch;
+    // Logic Update: Only trigger if effective length (excluding %) is >= 3
+    const effectiveSearchTerm = searchTerm.replace(/%/g, '').trim();
+    return Object.values(filters).some(val => Array.isArray(val) ? val.length > 0 : !!val && val !== 'all') || effectiveSearchTerm.length >= 3 || forceSearch;
   }, [searchTerm, filters, forceSearch]);
 
   useEffect(() => {
@@ -536,10 +584,22 @@ const App: React.FC = () => {
     
     let searchRegex: RegExp | null = null;
     if (textQuery) {
-        const regexPattern = textQuery.split('%').map(escapeRegExp).join('.*');
+        // Logic Update: Check for Wildcard (%)
+        const hasWildcard = textQuery.includes('%');
+        const regexPatternParts = textQuery.split('%').map(escapeRegExp);
+        
+        // If user typed %, use .* logic (wildcard). 
+        // If NOT, enforce Starts With (^).
+        let regexPattern = regexPatternParts.join('.*');
+        
+        if (!hasWildcard) {
+            regexPattern = '^' + regexPattern;
+        }
+
         try {
             searchRegex = new RegExp(regexPattern, 'i');
         } catch (e) {
+            // Fallback just in case regex fails
             searchRegex = new RegExp(escapeRegExp(textQuery), 'i');
         }
     }
@@ -600,7 +660,7 @@ const App: React.FC = () => {
         const bTradeName = String(b['Trade Name']).toLowerCase();
         
         if (textQuery) {
-            const prefix = textQuery;
+            const prefix = textQuery.replace(/%/g, '');
             const aStarts = aTradeName.startsWith(prefix);
             const bStarts = bTradeName.startsWith(prefix);
             if (aStarts && !bStarts) return -1;
@@ -1189,7 +1249,11 @@ const App: React.FC = () => {
             onDeleteConversation={(id) => {
               const newConvos = conversations.filter(c => c.id !== id);
               setConversations(newConvos);
-              localStorage.setItem('chatHistory', JSON.stringify(newConvos));
+              try {
+                localStorage.setItem('chatHistory', JSON.stringify(newConvos));
+              } catch(e) {
+                console.error("Failed to save history", e);
+              }
             }}
             onClearHistory={() => {
               setConversations([]);
