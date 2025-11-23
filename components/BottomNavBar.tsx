@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tab, TFunction, User } from '../types';
 import SearchIcon from './icons/SearchIcon';
 import HealthInsuranceIcon from './icons/HealthInsuranceIcon';
@@ -23,16 +23,16 @@ const NavItem: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center w-full h-full transition-colors duration-200 group ${
+      className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 group py-1 ${
         isActive 
-          ? 'text-primary dark:text-primary-light' 
+          ? 'text-primary dark:text-primary-light scale-105' 
           : 'text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300'
       }`}
     >
-      <div className={`w-6 h-6 mb-1 transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+      <div className={`w-6 h-6 mb-1 transition-transform duration-200 ${isActive ? 'drop-shadow-md -translate-y-0.5' : ''}`}>
         {icon}
       </div>
-      <span className="text-[10px] font-medium tracking-wide">
+      <span className={`text-[11px] font-medium tracking-wide ${isActive ? 'font-bold' : ''} leading-normal pb-0.5`}>
         {label}
       </span>
     </button>
@@ -40,6 +40,34 @@ const NavItem: React.FC<{
 };
 
 const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, setActiveTab, t, user }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const controlNavbar = () => {
+      if (typeof window !== 'undefined') {
+        const currentScrollY = window.scrollY;
+        const diff = currentScrollY - lastScrollY.current;
+
+        // Ignore small movements (jitter)
+        if (Math.abs(diff) < 10) return;
+
+        if (diff > 0 && currentScrollY > 50) {
+          // Scrolling Down -> Hide
+          setIsVisible(false);
+        } else if (diff < 0) {
+          // Scrolling Up -> Show
+          setIsVisible(true);
+        }
+        
+        lastScrollY.current = currentScrollY;
+      }
+    };
+
+    window.addEventListener('scroll', controlNavbar);
+    return () => window.removeEventListener('scroll', controlNavbar);
+  }, []);
+
   const navItems = [
     { id: 'search', labelKey: t('navSearch'), icon: <SearchIcon /> },
     { id: 'insurance', labelKey: t('navInsurance'), icon: <HealthInsuranceIcon /> },
@@ -49,8 +77,10 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, setActiveTab, t,
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-card border-t border-gray-200 dark:border-slate-800 shadow-lg z-30 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2">
-      <div className="flex justify-around items-center h-14 max-w-2xl mx-auto px-2">
+    <nav 
+        className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-card border-t border-slate-100 dark:border-slate-800 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)] z-30 pb-[calc(env(safe-area-inset-bottom)+4px)] pt-2 transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+    >
+      <div className="flex justify-around items-center h-auto min-h-[60px] max-w-2xl mx-auto px-2">
         {navItems.map(item => (
           <NavItem
             key={item.id}

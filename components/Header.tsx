@@ -1,6 +1,7 @@
 
 import React, { forwardRef, useState, useRef, useEffect } from 'react';
 import BackIcon from './icons/BackIcon';
+import PillIcon from './icons/PillIcon'; // Used as fallback
 import { TFunction, View } from '../types';
 import { useAuth } from './auth/AuthContext';
 
@@ -19,6 +20,7 @@ interface HeaderProps {
 const Header = forwardRef<HTMLElement, HeaderProps>(({ title, showBack, onBack, theme, toggleTheme, t, onLoginClick, onAdminClick, view }, ref) => {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,14 +35,20 @@ const Header = forwardRef<HTMLElement, HeaderProps>(({ title, showBack, onBack, 
     };
   }, [menuRef]);
   
+  // Allow Logo Layout for: App Title, Insurance, Cosmetics, Prescriptions
+  const isMainView = title === t('appTitle') || title === t('navInsurance') || title === t('navCosmetics') || title === t('navPrescriptions');
+
   return (
-    <header ref={ref} className="bg-primary text-white sticky top-0 z-20 flex-shrink-0 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-3 transition-all duration-300 shadow-md">
-      <div className="container mx-auto px-4 h-10 flex justify-between items-center max-w-7xl">
+    <header 
+        ref={ref} 
+        className="bg-gradient-to-b from-primary to-primary-dark text-white sticky top-0 z-20 flex-shrink-0 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2 transition-all duration-300 shadow-lg h-[80px] flex items-center border-b border-primary-dark/30"
+    >
+      <div className="container mx-auto px-4 flex justify-between items-center max-w-7xl w-full h-full">
         <div className="flex-1 flex justify-start">
           {showBack && (
             <button
               onClick={onBack}
-              className="p-2 text-white/80 hover:text-white transition-colors rounded-full hover:bg-white/10"
+              className="p-2 text-white/90 hover:text-white transition-colors rounded-full hover:bg-white/20 active:scale-95"
               aria-label={t('back')}
             >
               <span className={document.documentElement.lang === 'en' ? 'inline-block' : 'inline-block transform scale-x-[-1]'}>
@@ -50,18 +58,38 @@ const Header = forwardRef<HTMLElement, HeaderProps>(({ title, showBack, onBack, 
           )}
         </div>
         
-        <h1 className="text-lg font-bold whitespace-nowrap truncate px-2 text-center flex-shrink">
-          {title}
-        </h1>
+        <div className="flex-[2] flex justify-center items-center overflow-visible"> 
+          {isMainView ? (
+            <div className="flex flex-col items-center justify-center gap-0.5 animate-fade-in">
+                {!imageError ? (
+                    <img 
+                        src={`/logo.png?v=${Date.now()}`} 
+                        alt="Logo" 
+                        className="h-7 w-7 object-contain drop-shadow-md" 
+                        onError={() => setImageError(true)}
+                    />
+                ) : (
+                    <div className="h-7 w-7 bg-white/20 rounded-full flex items-center justify-center text-white">
+                        <PillIcon />
+                    </div>
+                )}
+                <span className="text-base font-bold whitespace-nowrap tracking-wide drop-shadow-md text-white text-shadow-sm leading-normal pb-1">{title}</span>
+            </div>
+          ) : (
+            <h1 className="text-lg font-bold whitespace-nowrap truncate px-2 text-center drop-shadow-md leading-normal pb-1">
+              {title}
+            </h1>
+          )}
+        </div>
 
         <div className="flex-1 flex justify-end items-center gap-1">
           {user ? (
             <div className="relative" ref={menuRef}>
-                <button onClick={() => setIsMenuOpen(prev => !prev)} className="p-1.5 text-white/80 hover:text-white transition-colors rounded-full hover:bg-white/10 flex items-center gap-1.5">
-                    <span className="font-medium text-xs max-w-[70px] truncate">{user.username}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                <button onClick={() => setIsMenuOpen(prev => !prev)} className="p-1.5 text-white/90 hover:text-white transition-colors rounded-full hover:bg-white/20 flex items-center gap-1.5 active:scale-95">
+                    <span className="font-medium text-xs max-w-[70px] truncate drop-shadow-md">{user.username}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                 </button>
-                <div className={`absolute top-full ltr:right-0 rtl:left-0 mt-2 w-48 bg-white dark:bg-dark-card rounded-md shadow-lg py-1 transition-opacity duration-200 z-30 divide-y divide-slate-100 dark:divide-slate-700 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                <div className={`absolute top-full ltr:right-0 rtl:left-0 mt-2 w-48 bg-white dark:bg-dark-card rounded-xl shadow-xl ring-1 ring-black/5 py-1 transition-all duration-200 z-30 divide-y divide-slate-100 dark:divide-slate-700 origin-top-right ${isMenuOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'}`}>
                     <div className="px-4 py-2">
                         <div className="text-[10px] text-light-text-secondary dark:text-dark-text-secondary uppercase">{t('role')}</div>
                         <div className="font-semibold text-xs text-light-text dark:text-dark-text">{user.role === 'admin' ? t('adminRole') : t('premiumRole')}</div>
@@ -75,7 +103,7 @@ const Header = forwardRef<HTMLElement, HeaderProps>(({ title, showBack, onBack, 
                 </div>
             </div>
           ) : (
-            <button onClick={onLoginClick} className="px-3 py-1.5 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg transition-colors">{t('login')}</button>
+            <button onClick={onLoginClick} className="px-3 py-1.5 text-xs font-bold bg-white/20 hover:bg-white/30 rounded-lg transition-all shadow-sm backdrop-blur-sm">{t('login')}</button>
           )}
         </div>
       </div>

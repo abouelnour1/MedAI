@@ -4,11 +4,12 @@ import { getFirestore, enableIndexedDbPersistence, Firestore } from "firebase/fi
 import { getAuth, Auth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 import { getMessaging, Messaging } from "firebase/messaging";
+import { getFunctions, Functions } from "firebase/functions";
 
 // --- FIREBASE SWITCH ---
 // Set this to TRUE to disconnect Firebase completely.
 // Set this to FALSE to enable Firebase connection.
-export const FIREBASE_DISABLED = false;
+export const FIREBASE_DISABLED = true;
 
 const firebaseConfig = {
   apiKey: "AIzaSyAazQzvW1KUFqj1wQYaUXXlogfp8lkU50s",
@@ -25,6 +26,7 @@ let db: Firestore;
 let auth: Auth;
 let analytics: any = null;
 let messaging: Messaging | null = null;
+let functions: Functions | null = null;
 
 if (!FIREBASE_DISABLED) {
   // Initialize Firebase
@@ -32,6 +34,16 @@ if (!FIREBASE_DISABLED) {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+    
+    // Initialize Functions specifically
+    try {
+        // Explicitly initializing functions with the app instance
+        functions = getFunctions(app);
+        console.log("Firebase Functions initialized successfully");
+    } catch (err) {
+        console.error("Firebase Functions Initialization failed.", err);
+    }
+
   } catch (e) {
     console.error("Firebase Core Initialization failed:", e);
   }
@@ -75,6 +87,7 @@ if (!FIREBASE_DISABLED) {
   auth = null as unknown as Auth;
   analytics = null;
   messaging = null;
+  functions = null;
 }
 
-export { app, db, auth, analytics, messaging };
+export { app, db, auth, analytics, messaging, functions };

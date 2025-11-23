@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'medai-cache-v5'; // Version updated to trigger re-caching
+const CACHE_NAME = 'medai-cache-v7'; // Version updated to trigger re-caching
 const APP_SHELL_URLS = [
   '/',
   '/index.html',

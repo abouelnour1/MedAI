@@ -40,8 +40,8 @@ import AdminIcon from './components/icons/AdminIcon';
 import StarIcon from './components/icons/StarIcon';
 import FavoritesView from './components/FavoritesView';
 import { isAIAvailable } from './geminiService';
-import { db, messaging, FIREBASE_DISABLED } from './firebase';
-import { collection, getDocs, updateDoc, doc, setDoc } from 'firebase/firestore';
+import { db, messaging, FIREBASE_DISABLED, auth } from './firebase';
+import { collection, getDocs, updateDoc, doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
 import { Part } from '@google/genai';
 
@@ -235,18 +235,33 @@ const App: React.FC = () => {
         try {
           const permission = await Notification.requestPermission();
           if (permission === 'granted') {
-            // We need a VAPID key for web push. 
-            // If you don't have one generated in Firebase Console > Cloud Messaging > Web Configuration,
-            // getToken might fail or require one.
-            // Pass it if available, otherwise try without (might work if default config exists)
+            const vapidKey = "BBMmrZJ0Gz7VzBfX9lZq5Z8zZzZzZzZzZzZzZzZzZzZzZzZzZzZ"; // Placeholder
+            
+            if (vapidKey.includes('ZzZz')) {
+                console.warn("⚠️ WARNING: VAPID Key is a placeholder. Notifications will likely fail. Generate a new key pair in Firebase Console > Project Settings > Cloud Messaging > Web Config.");
+            }
+
+            // Get Token
             const token = await getToken(messaging!, {
-              vapidKey: "BBMmrZJ0Gz7VzBfX9lZq5Z8zZzZzZzZzZzZzZzZzZzZzZzZzZzZ" // Ensure this is a valid public VAPID key
+              vapidKey: vapidKey
             });
             console.log('Notification Token:', token);
-            // In a real app, you'd send this token to your backend here to subscribe the user to a topic.
+            
+            // IMPORTANT: Save token to Firestore if user is logged in
+            if (auth.currentUser && token) {
+                const userRef = doc(db, 'users', auth.currentUser.uid);
+                await updateDoc(userRef, {
+                    fcmTokens: arrayUnion(token)
+                }).catch(async (e) => {
+                    // If doc doesn't exist, set it
+                    if (e.code === 'not-found') {
+                        await setDoc(userRef, { fcmTokens: [token] }, { merge: true });
+                    }
+                });
+            }
           }
         } catch (error) {
-          console.log('Notification permission denied or error (VAPID key might be missing/invalid):', error);
+          console.log('Notification permission denied or error:', error);
         }
       };
 
@@ -258,14 +273,14 @@ const App: React.FC = () => {
         if (payload.notification) {
             new Notification(payload.notification.title || 'Notification', {
                 body: payload.notification.body,
-                icon: '/icon.svg'
+                icon: '/logo.png'
             });
         }
       });
 
       return () => unsubscribe();
     }
-  }, []);
+  }, [user]); // Re-run when user logs in to save token
 
   // Initialize with Persistent Data (Cache first, then Static)
   const [medicines, setMedicines] = useState<Medicine[]>(() => {
@@ -1007,16 +1022,19 @@ const App: React.FC = () => {
       case 'admin': return t('adminDashboard');
       case 'chatHistory': return t('chatHistoryTitle');
       case 'favorites': return t('favoriteProducts');
-      case 'insuranceSearch': return t('insuranceSearchTitle');
-      case 'cosmeticsSearch': return t('cosmeticsSearchTitle');
+      
+      // Force branding logo AND correct section title for main tab views
+      case 'insuranceSearch': return t('navInsurance'); 
+      case 'cosmeticsSearch': return t('navCosmetics');
+      case 'prescriptions': return selectedPrescription ? t('patientName') + ': ' + (selectedPrescription.patientName || '') : t('navPrescriptions');
+      
       case 'insuranceDetails': return t('insuranceCoverageDetails');
       case 'verifyEmail': return t('verifyEmailTitle');
-      case 'prescriptions': return selectedPrescription ? t('patientName') + ': ' + (selectedPrescription.patientName || '') : t('prescriptionsListTitle');
       default:
         if (activeTab === 'search') return t('appTitle');
-        if (activeTab === 'insurance') return t('insuranceSearchTitle');
-        if (activeTab === 'prescriptions') return t('prescriptionsListTitle');
-        if (activeTab === 'cosmetics') return t('cosmeticsSearchTitle');
+        if (activeTab === 'insurance') return t('navInsurance'); // Show specific title
+        if (activeTab === 'prescriptions') return t('navPrescriptions'); // Show specific title
+        if (activeTab === 'cosmetics') return t('navCosmetics'); // Show specific title
         if (activeTab === 'settings') return t('navSettings');
         return t('appTitle');
     }
@@ -1047,10 +1065,22 @@ const App: React.FC = () => {
     }
     
     if (view === 'login') {
-        return <LoginView t={t} onSwitchToRegister={() => setView('register')} onLoginSuccess={() => setView('search')} />;
+        return <LoginView t={t} 
+            onSwitchToRegister={() => setView('register')} 
+            onLoginSuccess={() => {
+                setActiveTab('search');
+                setView('search');
+            }} 
+        />;
     }
     if (view === 'register') {
-        return <RegisterView t={t} onSwitchToLogin={() => setView('login')} onRegisterSuccess={() => {alert(t('registerSuccessPending')); setView('login');}}/>;
+        return <RegisterView t={t} 
+            onSwitchToLogin={() => setView('login')} 
+            onRegisterSuccess={() => {
+                alert(t('registerSuccessPending')); 
+                setView('login');
+            }}
+        />;
     }
 
     if (activeTab === 'search') {
@@ -1075,12 +1105,7 @@ const App: React.FC = () => {
                   <SortControls sortBy={sortBy} setSortBy={setSortBy} t={t} />
               </div>
 
-              {view === 'search' && !isSearchActive && (
-                 <div className="text-center py-10">
-                    <h2 className="text-xl font-bold text-light-text dark:text-dark-text">{t('welcomeTitle')}</h2>
-                    <p className="text-light-text-secondary dark:text-dark-text-secondary mt-2">{t('welcomeSubtitle')}</p>
-                 </div>
-              )}
+              {/* Welcome Message Removed Here */}
 
               {view === 'results' && (
                 <ResultsList
@@ -1249,11 +1274,7 @@ const App: React.FC = () => {
             onDeleteConversation={(id) => {
               const newConvos = conversations.filter(c => c.id !== id);
               setConversations(newConvos);
-              try {
-                localStorage.setItem('chatHistory', JSON.stringify(newConvos));
-              } catch(e) {
-                console.error("Failed to save history", e);
-              }
+              localStorage.setItem('chatHistory', JSON.stringify(newConvos));
             }}
             onClearHistory={() => {
               setConversations([]);
