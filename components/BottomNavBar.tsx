@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Tab, TFunction, User } from '../types';
 import SearchIcon from './icons/SearchIcon';
@@ -44,13 +43,15 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, setActiveTab, t,
   const lastScrollY = useRef(0);
 
   useEffect(() => {
+    const scrollContainer = document.getElementById('main-scroll-container');
+
     const controlNavbar = () => {
-      if (typeof window !== 'undefined') {
-        const currentScrollY = window.scrollY;
+      if (scrollContainer) {
+        const currentScrollY = scrollContainer.scrollTop;
         const diff = currentScrollY - lastScrollY.current;
         
         // Check if page is actually scrollable (content height > viewport height + buffer)
-        const isScrollable = document.documentElement.scrollHeight > window.innerHeight + 100;
+        const isScrollable = scrollContainer.scrollHeight > scrollContainer.clientHeight + 50;
 
         if (isScrollable) {
             // Ignore small movements (jitter)
@@ -72,8 +73,14 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, setActiveTab, t,
       }
     };
 
-    window.addEventListener('scroll', controlNavbar);
-    return () => window.removeEventListener('scroll', controlNavbar);
+    if (scrollContainer) {
+        scrollContainer.addEventListener('scroll', controlNavbar);
+    }
+    return () => {
+        if (scrollContainer) {
+            scrollContainer.removeEventListener('scroll', controlNavbar);
+        }
+    };
   }, []);
 
   const navItems = [

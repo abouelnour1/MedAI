@@ -1,11 +1,11 @@
 
-const CACHE_NAME = 'medai-cache-v7'; // Version updated to trigger re-caching
+const CACHE_NAME = 'medai-cache-v9'; // Version updated to force refresh
 const APP_SHELL_URLS = [
   '/',
   '/index.html',
   '/index.tsx',
   '/manifest.json',
-  '/icon.svg',
+  '/logo.png', // Cached the correct icon file
   // Add external resources critical for the first offline load
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Poppins:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap'
 ];

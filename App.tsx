@@ -762,8 +762,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleMedicineSelect = (medicine: Medicine) => { scrollPositionRef.current = window.scrollY; setSelectedMedicine(medicine); setView('details'); };
-  const handleCosmeticSelect = (cosmetic: Cosmetic) => { scrollPositionRef.current = window.scrollY; setSelectedCosmetic(cosmetic); setView('cosmeticDetails'); };
+  // Update scroll tracking to use the internal container instead of window
+  const handleMedicineSelect = (medicine: Medicine) => { 
+      const container = document.getElementById('main-scroll-container');
+      if(container) scrollPositionRef.current = container.scrollTop;
+      setSelectedMedicine(medicine); 
+      setView('details'); 
+  };
+  
+  const handleCosmeticSelect = (cosmetic: Cosmetic) => { 
+      const container = document.getElementById('main-scroll-container');
+      if(container) scrollPositionRef.current = container.scrollTop;
+      setSelectedCosmetic(cosmetic); 
+      setView('cosmeticDetails'); 
+  };
 
   const handleFilterChange = <K extends keyof Filters>(filterName: K, value: Filters[K]) => setFilters(prevFilters => ({ ...prevFilters, [filterName]: value }));
   const handleClearFilters = useCallback(() => setFilters({ productType: 'all', priceMin: '', priceMax: '', pharmaceuticalForm: '', manufactureName: [], legalStatus: '' }), []);
@@ -788,7 +800,8 @@ const App: React.FC = () => {
        } else {
            setView(targetView);
            if (targetView === 'results') {
-                setTimeout(() => window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' }), 10);
+                // Restore scroll position on internal container
+                setTimeout(() => document.getElementById('main-scroll-container')?.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' }), 10);
            }
        }
     } else if (['addData', 'addInsuranceData', 'addCosmeticsData'].includes(view)) {
@@ -1290,7 +1303,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text min-h-screen flex flex-col">
+    <div className="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text h-full flex flex-col overflow-hidden">
       <Header
         title={headerTitle}
         showBack={showBackButton}
@@ -1306,7 +1319,7 @@ const App: React.FC = () => {
         view={view}
       />
 
-      <main className="flex-grow container mx-auto p-4 space-y-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] transition-all duration-300 max-w-7xl">
+      <main id="main-scroll-container" className="flex-grow container mx-auto p-4 space-y-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] transition-all duration-300 max-w-7xl overflow-y-auto overscroll-y-contain">
         {renderContent()}
       </main>
 
