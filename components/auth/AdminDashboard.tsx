@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { TFunction, User, Medicine, AppSettings, InsuranceDrug, Cosmetic } from '../../types';
 import { useAuth } from './AuthContext';

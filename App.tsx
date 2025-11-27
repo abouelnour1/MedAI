@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { 
   Medicine, View, Filters, TextSearchMode, Language, TFunction, Tab, SortByOption, 
@@ -313,11 +312,10 @@ const App: React.FC = () => {
         const matchA = formA.includes(sourceForm) || sourceForm.includes(formA);
         const matchB = formB.includes(sourceForm) || sourceForm.includes(formB);
 
-        // Prefer same form type
         if (matchA && !matchB) return -1;
         if (!matchA && matchB) return 1;
 
-        // 3. Alphabetical Priority (Fallback)
+        // 3. Alphabetical Priority
         return a['Trade Name'].localeCompare(b['Trade Name']);
     });
 
@@ -445,14 +443,12 @@ const App: React.FC = () => {
               return <MedicineDetail medicine={selectedMedicine} t={t} language={language} isFavorite={favorites.includes(selectedMedicine.RegisterNumber)} onToggleFavorite={toggleFavorite} user={user} />;
           }
           if (view === 'alternatives' && sourceMedicine && alternativesResults) {
-              // FIX: Passed handleFindAlternative to AlternativesView
               return <AlternativesView sourceMedicine={sourceMedicine} alternatives={alternativesResults} onMedicineSelect={handleMedicineSelect} onMedicineLongPress={(m) => { setSelectedMedicine(m); setAssistantPrompt(`Tell me about ${m['Trade Name']}`); setIsAssistantOpen(true); }} onFindAlternative={handleFindAlternative} favorites={favorites} onToggleFavorite={toggleFavorite} t={t} language={language} />;
           }
           if (view === 'chatHistory') {
               return <ChatHistoryView conversations={chatHistory} onSelectConversation={(c) => { setCurrentChatHistory(c.messages); setAssistantPrompt(''); setIsAssistantOpen(true); }} onDeleteConversation={(id) => setChatHistory(prev => prev.filter(c => c.id !== id))} onClearHistory={() => setChatHistory([])} t={t} language={language} />;
           }
           if (view === 'favorites') {
-              // FIX: Passed handleFindAlternative to FavoritesView
               return <FavoritesView favoriteIds={favorites} allMedicines={medicines} onMedicineSelect={handleMedicineSelect} onMedicineLongPress={(m) => { setSelectedMedicine(m); setAssistantPrompt(''); setIsAssistantOpen(true); }} onFindAlternative={handleFindAlternative} toggleFavorite={toggleFavorite} t={t} language={language} />;
           }
           // Default Search View
@@ -464,8 +460,18 @@ const App: React.FC = () => {
                     <SortControls sortBy={sortBy} setSortBy={setSortBy} t={t} />
                 </div>
                 <div className="mt-4">
-                    {/* FIX: Passed handleFindAlternative to ResultsList */}
-                    <ResultsList medicines={filteredMedicines} onMedicineSelect={handleMedicineSelect} onMedicineLongPress={(m) => { setSelectedMedicine(m); setAssistantPrompt(''); setIsAssistantOpen(true); }} onFindAlternative={handleFindAlternative} favorites={favorites} onToggleFavorite={toggleFavorite} t={t} language={language} resultsState={filteredMedicines.length > 0 ? 'loaded' : 'empty'} />
+                    {isSearchActive ? (
+                        <ResultsList medicines={filteredMedicines} onMedicineSelect={handleMedicineSelect} onMedicineLongPress={(m) => { setSelectedMedicine(m); setAssistantPrompt(''); setIsAssistantOpen(true); }} onFindAlternative={handleFindAlternative} favorites={favorites} onToggleFavorite={toggleFavorite} t={t} language={language} resultsState={filteredMedicines.length > 0 ? 'loaded' : 'empty'} />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                            <div className="w-16 h-16 mb-4 text-gray-300 dark:text-slate-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-slate-400">{t('welcomeSubtitle')}</p>
+                        </div>
+                    )}
                 </div>
               </>
           );
