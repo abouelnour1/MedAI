@@ -30,6 +30,8 @@ const LOCAL_USER_STORAGE_KEY = 'medai_user_backup';
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // 1. Initialize State DIRECTLY from Local Storage (Synchronous)
+  // This allows the app to open immediately without waiting for Firebase/Internet
   const [user, setUser] = useState<User | null>(() => {
     try {
       const cached = localStorage.getItem(LOCAL_USER_STORAGE_KEY);
@@ -40,10 +42,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
+  // 2. Loading is false if we already have a user from cache
   const [isLoading, setIsLoading] = useState(() => {
+      // If we found a user in local storage, we are NOT loading, we render the app immediately.
+      // If no user in cache, we wait for Firebase to tell us (loading = true).
       return !localStorage.getItem(LOCAL_USER_STORAGE_KEY);
   });
 
+  // Enforce local persistence on mount
   useEffect(() => {
      if (FIREBASE_DISABLED) return;
      const initAuth = async () => {
@@ -56,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
      initAuth();
   }, []);
 
+  // Sync user state with Firebase Auth (Background Check)
   useEffect(() => {
     if (FIREBASE_DISABLED) {
         setIsLoading(false);
@@ -64,9 +71,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Update local state with fresh data from server (Silent Update)
         await syncUserData(firebaseUser);
       } else {
+        // Only clear user if we were previously logged in and Firebase explicitly says signed out
+        // We only clear if we don't have a cached user OR if firebase explicitly signs out (null)
+        // Ideally, if offline, onAuthStateChanged might trigger with null if persistence fails, 
+        // but with browserLocalPersistence it should restore.
+        
+        const cachedUser = localStorage.getItem(LOCAL_USER_STORAGE_KEY);
+        // Only force logout if we were previously loading (fresh start) or if explicit logout action happened elsewhere.
+        // But to be safe and match standard auth flow:
         if (!isLoading) { 
+             // If we were already loaded (from cache), and now firebase says null, it usually means token expired or logout.
              setUser(null);
              localStorage.removeItem(LOCAL_USER_STORAGE_KEY);
         } else {
@@ -80,6 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const syncUserData = async (firebaseUser: FirebaseUser) => {
+      // If offline, this fetch might fail or hang. We wrap in try/catch
+      // and rely on the cached user we already set in the state initializer.
       try {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);
@@ -89,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             let emailVerified = firebaseUser.emailVerified;
             
             if (emailVerified && !firestoreData.emailVerified) {
+                // Attempt to update firestore, but don't block if offline
                 updateDoc(userDocRef, { emailVerified: true }).catch(e => console.log("Offline: Could not update verify status"));
             }
 
@@ -97,13 +117,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 ...firestoreData, 
                 emailVerified: emailVerified, 
                 email: firebaseUser.email || '',
-                prescriptionPrivilege: firestoreData.prescriptionPrivilege ?? false,
-                customAiLimit: firestoreData.customAiLimit
+                prescriptionPrivilege: firestoreData.prescriptionPrivilege ?? false
             } as User;
 
+            // Update state and cache with fresh data
             setUser(finalUser);
             localStorage.setItem(LOCAL_USER_STORAGE_KEY, JSON.stringify(finalUser));
           } else {
+              // Create new user logic...
               const newUser: User = {
                   id: firebaseUser.uid,
                   username: firebaseUser.email?.split('@')[0] || 'User',
@@ -115,12 +136,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   email: firebaseUser.email || '',
                   prescriptionPrivilege: false
               };
+              // Only block on this if we really have to, otherwise set state
               setDoc(userDocRef, newUser).catch(e => console.log("Offline: could not create doc"));
+              
               setUser(newUser);
               localStorage.setItem(LOCAL_USER_STORAGE_KEY, JSON.stringify(newUser));
           }
       } catch (e) {
           console.log("Network issue or offline: keeping existing cached user data.");
+          // We don't need to do anything because 'user' state was already set from localStorage in the useState initializer.
       } finally {
           setIsLoading(false);
       }
@@ -137,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
         await setPersistence(auth, browserLocalPersistence);
         await signInWithEmailAndPassword(auth, email, password);
+        // syncUserData will be called by the onAuthStateChanged listener
     } catch (error: any) {
         console.error("Login error:", error);
         let errorMessage = 'خطأ في تسجيل الدخول. تأكد من البريد الإلكتروني وكلمة المرور.';
@@ -239,17 +264,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   
   const getSettings = useCallback((): AppSettings => {
+    // Try to get from local storage cache first to be fast
     try {
       const stored = localStorage.getItem('mock_app_settings');
       if (stored) return JSON.parse(stored);
     } catch (e) {
         // ignore
     }
+    // Return default limit of 3
     return { aiRequestLimit: 3, isAiEnabled: true };
   }, []);
 
   const updateSettings = useCallback(async (settings: AppSettings) => {
     try {
+        // Update local immediately
         localStorage.setItem('mock_app_settings', JSON.stringify(settings));
         
         if (!FIREBASE_DISABLED) {
@@ -261,6 +289,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Fetch settings on mount to ensure we have latest limits
   useEffect(() => {
       if (FIREBASE_DISABLED) return;
       const fetchSettings = async () => {
@@ -300,6 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
+        // FORCE SYNC SETTINGS IF ONLINE TO ENSURE LIMITS ARE UP TO DATE
         if (!FIREBASE_DISABLED && navigator.onLine) {
             try {
                 const fetchPromise = (async () => {
@@ -310,6 +340,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         localStorage.setItem('mock_app_settings', JSON.stringify(data));
                     }
                 })();
+                
+                // Wait maximum 2 seconds for settings sync
                 const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
                 await Promise.race([fetchPromise, timeoutPromise]);
             } catch(e) {
@@ -317,12 +349,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
 
+        // Check against Global Settings Limit
         const currentSettings = getSettings();
-        // Determine user specific limit or fall back to global
-        const globalLimit = currentSettings.aiRequestLimit ?? 3;
-        const userLimit = user.customAiLimit ?? globalLimit;
-        
-        const isAiEnabled = currentSettings.isAiEnabled !== false;
+        // Default limit is 3 if not set in settings
+        const limit = currentSettings.aiRequestLimit ?? 3;
+        const isAiEnabled = currentSettings.isAiEnabled !== false; // Default true
 
         if (!isAiEnabled) {
             alert(t('aiUnavailableMessage'));
@@ -332,16 +363,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const today = new Date().toISOString().split('T')[0];
         let currentUserState = { ...user };
         
+        // Reset counter if new day
         if (currentUserState.lastRequestDate !== today) {
             currentUserState.aiRequestCount = 0;
             currentUserState.lastRequestDate = today;
         }
         
-        if (currentUserState.aiRequestCount >= userLimit) {
-            alert(t('usageLimitReached', { limit: userLimit }));
+        // Check Limit
+        if (currentUserState.aiRequestCount >= limit) {
+            alert(t('usageLimitReached', { limit }));
             return;
         }
         
+        // Proceed
         currentUserState.aiRequestCount += 1;
         setUser(currentUserState);
         localStorage.setItem(LOCAL_USER_STORAGE_KEY, JSON.stringify(currentUserState));

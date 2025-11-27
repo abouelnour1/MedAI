@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { TFunction } from '../types';
 import ClearIcon from './icons/ClearIcon';
@@ -64,43 +65,22 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
     }
   };
 
-  const { displayedOptions, hasMore } = useMemo(() => {
-    let filtered: string[] | GroupedOption[] = [];
-    
+  const filteredOptions = useMemo(() => {
     if (!searchTerm) {
-        filtered = options;
-    } else {
-        const lowerSearchTerm = searchTerm.toLowerCase();
-        if (isGrouped(options)) {
-            filtered = options
-                .map(group => ({
-                ...group,
-                options: group.options.filter(opt => typeof opt === 'string' && opt.toLowerCase().includes(lowerSearchTerm)),
-                }))
-                .filter(group => group.options.length > 0);
-        } else {
-            filtered = (options as string[]).filter(opt => typeof opt === 'string' && opt.toLowerCase().includes(lowerSearchTerm));
-        }
+      return options;
     }
+    const lowerSearchTerm = searchTerm.toLowerCase();
 
-    // Performance Optimization: Limit rendered items to 50 to prevent UI freezing
-    const LIMIT = 50;
-    let sliced: string[] | GroupedOption[] = [];
-    let more = false;
-
-    if (isGrouped(filtered)) {
-        sliced = filtered; 
+    if (isGrouped(options)) {
+      return options
+        .map(group => ({
+          ...group,
+          options: group.options.filter(opt => typeof opt === 'string' && opt.toLowerCase().includes(lowerSearchTerm)),
+        }))
+        .filter(group => group.options.length > 0);
     } else {
-        const flatList = filtered as string[];
-        if (flatList.length > LIMIT) {
-            sliced = flatList.slice(0, LIMIT);
-            more = true;
-        } else {
-            sliced = flatList;
-        }
+      return (options as string[]).filter(opt => typeof opt === 'string' && opt.toLowerCase().includes(lowerSearchTerm));
     }
-
-    return { displayedOptions: sliced, hasMore: more };
   }, [options, searchTerm]);
 
 
@@ -142,7 +122,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
         aria-expanded={isOpen}
         aria-label={ariaLabel}
       >
-        <div className="flex-grow flex flex-wrap gap-1 items-center overflow-hidden">{renderSelected()}</div>
+        <div className="flex-grow flex flex-wrap gap-1 items-center">{renderSelected()}</div>
         <svg className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 flex-shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
         </svg>
@@ -158,7 +138,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                 placeholder={t('search') + '...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full py-1.5 bg-gray-100 dark:bg-slate-700 border-2 border-transparent focus:border-primary rounded-md outline-none transition-colors ltr:pl-9 ltr:pr-3 rtl:pr-9 rtl:pl-3"
+                className="w-full pl-9 pr-3 py-1.5 bg-gray-100 dark:bg-slate-700 border-2 border-transparent focus:border-primary rounded-md outline-none transition-colors"
               />
               <div className="absolute top-1/2 left-2.5 rtl:left-auto rtl:right-2.5 transform -translate-y-1/2 text-gray-400 dark:text-dark-text-secondary pointer-events-none">
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -177,8 +157,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
               </li>
             )}
 
-            {isGrouped(displayedOptions) ? (
-              displayedOptions.map(group => (
+            {isGrouped(filteredOptions) ? (
+              filteredOptions.map(group => (
                 <React.Fragment key={group.label}>
                   <li className="px-3 pt-2 pb-1 text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary uppercase sticky top-0 bg-white dark:bg-dark-card">{group.label}</li>
                   {group.options.map(option => {
@@ -192,23 +172,16 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                   })}
                 </React.Fragment>
               ))
-            ) : (displayedOptions as string[]).length > 0 ? (
-              <>
-                {(displayedOptions as string[]).map(option => {
-                    const isSelected = mode === 'multi' ? (value as string[]).includes(option) : value === option;
-                    return (
-                    <li key={option} onClick={() => handleSelect(option)} className={`px-3 py-2 text-sm cursor-pointer flex justify-between items-center ${isSelected ? 'font-semibold text-primary dark:text-primary' : 'text-light-text hover:text-light-text dark:text-dark-text hover:bg-gray-100 dark:hover:bg-slate-700'}`} role="option" aria-selected={isSelected}>
-                        {option}
-                        {isSelected && mode === 'multi' && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                    </li>
-                    );
-                })}
-                {hasMore && (
-                    <li className="px-3 py-2 text-xs text-light-text-secondary dark:text-dark-text-secondary text-center bg-slate-5 dark:bg-slate-800">
-                        {t('searchPlaceholder')}...
-                    </li>
-                )}
-              </>
+            ) : (filteredOptions as string[]).length > 0 ? (
+              (filteredOptions as string[]).map(option => {
+                const isSelected = mode === 'multi' ? (value as string[]).includes(option) : value === option;
+                return (
+                  <li key={option} onClick={() => handleSelect(option)} className={`px-3 py-2 text-sm cursor-pointer flex justify-between items-center ${isSelected ? 'font-semibold text-primary dark:text-primary' : 'text-light-text hover:text-light-text dark:text-dark-text hover:bg-gray-100 dark:hover:bg-slate-700'}`} role="option" aria-selected={isSelected}>
+                      {option}
+                      {isSelected && mode === 'multi' && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  </li>
+                );
+              })
             ) : (
               <li className="px-3 py-2 text-sm text-light-text-secondary dark:text-dark-text-secondary italic text-center">{t('noResultsTitle')}</li>
             )}

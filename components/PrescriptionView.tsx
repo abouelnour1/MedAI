@@ -1,12 +1,18 @@
+
 import React, { useMemo, useState } from 'react';
 import { TFunction, PrescriptionData } from '../types';
 
 const parsePrescription = (content: string): Omit<PrescriptionData, 'id'> | null => {
+    // 1. Extract content between markers if they exist, otherwise use the whole content
     const markerMatch = content.match(/---PRESCRIPTION_START---([\s\S]*?)---PRESCRIPTION_END---/);
     let potentialJson = markerMatch ? markerMatch[1] : content;
 
+    // 2. Clean up: Remove markdown code blocks if present (```json ... ```)
+    // This is just to clean up the string before we hunt for braces
     potentialJson = potentialJson.replace(/```(?:json)?/g, '').replace(/```/g, '');
 
+    // 3. Robust Extraction: Find the first '{' and the last '}'
+    // This ignores any text the AI might have put before or after the JSON object
     const firstBrace = potentialJson.indexOf('{');
     const lastBrace = potentialJson.lastIndexOf('}');
 
@@ -18,6 +24,7 @@ const parsePrescription = (content: string): Omit<PrescriptionData, 'id'> | null
 
     try {
         const parsed = JSON.parse(jsonString);
+        // Basic validation: Check for key fields to ensure it's actually a prescription
         if (parsed.hospitalName || parsed.drugs || parsed.patientName) {
              return parsed;
         }
@@ -60,17 +67,21 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
             pri.document.open();
             pri.document.write('<html><head>');
             
-            // Critical: Add Tailwind CDN to the iframe to ensure styles are applied
-            pri.document.write('<script src="https://cdn.tailwindcss.com"></script>');
+            // Copy all <link> and <style> tags from parent document
+            const headTags = document.head.querySelectorAll('link, style');
+            headTags.forEach(tag => {
+                pri.document.write(tag.outerHTML);
+            });
+            
+            // Add custom print styles for A4 layout and proper margins
             pri.document.write(`
                 <style>
-                    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap');
+                    @page { size: A4; margin: 0; }
                     body { 
-                        font-family: 'Cairo', sans-serif;
+                        margin: 1.5cm; 
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
                     }
-                    @page { size: A4; margin: 0; }
                 </style>
             `);
 
@@ -79,17 +90,12 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
             pri.document.write('</body></html>');
             pri.document.close();
 
-            // Use onload to wait for the Tailwind script and content to load
+            // Use onload to ensure all content (especially fonts) is loaded before printing
             pri.onload = function() {
-                // Add a small delay to ensure Tailwind has processed the classes
-                setTimeout(() => {
-                    pri.focus();
-                    pri.print();
-                    // Clean up after print dialog closes
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                    }, 500);
-                }, 500);
+                pri.focus(); // required for some browsers
+                pri.print();
+                // Clean up by removing the iframe
+                document.body.removeChild(iframe);
             };
         } else {
              document.body.removeChild(iframe);
@@ -98,6 +104,7 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
 
     if (!data) {
         if (content && content.includes('---PRESCRIPTION_START---')) {
+             // If markers exist but we couldn't parse, show a more helpful error or fallback
              return (
                 <div className="p-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                     Warning: Malformed prescription data received.
