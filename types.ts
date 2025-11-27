@@ -83,7 +83,7 @@ export interface Cosmetic {
 
 export type ProductTypeFilter = 'all' | 'medicine' | 'supplement';
 
-export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addCosmeticsData' | 'cosmeticsSearch' | 'cosmeticDetails' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites' | 'verifyEmail';
+export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addCosmeticsData' | 'cosmeticsSearch' | 'cosmeticDetails' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites' | 'verifyEmail' | 'aiGuide' | 'clinicalAssistant';
 
 export type TextSearchMode = 'tradeName' | 'scientificName' | 'all';
 
@@ -178,6 +178,7 @@ export interface User {
   emailVerified: boolean; 
   email?: string;
   prescriptionPrivilege?: boolean;
+  customAiLimit?: number;
 }
 
 export interface AppSettings {

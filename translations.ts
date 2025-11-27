@@ -256,7 +256,7 @@ export const translations = {
     mostSearched: 'الأكثر بحثاً',
     systemErrors: 'أخطاء النظام',
     userManagementTitle: 'إدارة المستخدمين',
-    searchUserPlaceholder: 'ابحث عن مستخدم...',
+    searchUserPlaceholder: 'ابحث باسم المستخدم أو البريد...',
     actions: 'الإجراءات',
     aiRequests: 'طلبات AI',
     editUser: 'تعديل المستخدم',
@@ -323,6 +323,12 @@ export const translations = {
     notificationTitle: 'عنوان الإشعار',
     notificationBody: 'نص الإشعار',
     sendBroadcast: 'إرسال للجميع',
+    brand: 'براند',
+    generic: 'جنيس',
+    accessDeniedPrescription: 'عفواً، ميزة الوصفات الطبية متاحة للمشرفين والمستخدمين المصرح لهم فقط.',
+    customAiLimit: 'حد AI مخصص',
+    changeRole: 'تغيير الدور',
+    dangerZone: 'منطقة الخطر',
   },
   en: {
     appTitle: 'PharmaSource',
@@ -580,7 +586,7 @@ export const translations = {
     mostSearched: 'Most Searched',
     systemErrors: 'System Errors',
     userManagementTitle: 'User Management',
-    searchUserPlaceholder: 'Search for a user...',
+    searchUserPlaceholder: 'Search by username or email...',
     actions: 'Actions',
     aiRequests: 'AI Requests',
     editUser: 'Edit User',
@@ -647,6 +653,12 @@ export const translations = {
     notificationTitle: 'Notification Title',
     notificationBody: 'Notification Body',
     sendBroadcast: 'Send to All',
+    brand: 'Brand',
+    generic: 'Generic',
+    accessDeniedPrescription: 'Access denied. Prescription features are for Admins and authorized users only.',
+    customAiLimit: 'Custom AI Limit',
+    changeRole: 'Change Role',
+    dangerZone: 'Danger Zone',
   }
 };
 

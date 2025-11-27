@@ -17,13 +17,19 @@ const DetailRow: React.FC<{ label: string; value?: string | number | null }> = (
 const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFunction }> = ({ status, size = 'sm', t }) => {
   if (!status) return null;
 
-  const statusText = status === 'OTC' ? t('otc') : status === 'Prescription' ? t('prescription') : status;
-  
+  // Force English Text logic
+  const lowerStatus = status.toLowerCase();
+  let statusText = status;
   let colorClasses = 'bg-slate-100 text-light-text-secondary dark:bg-slate-700 dark:text-dark-text-secondary'; // Default
-  if (status === 'OTC') {
-    colorClasses = 'bg-secondary/10 text-green-700 dark:bg-secondary/20 dark:text-green-300';
-  } else if (status === 'Prescription') {
-    colorClasses = 'bg-primary/10 text-primary-dark dark:bg-primary/20 dark:text-primary-light';
+
+  if (lowerStatus.includes('otc')) {
+    statusText = 'OTC';
+    // Green for OTC
+    colorClasses = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800';
+  } else if (lowerStatus.includes('prescription')) {
+    statusText = 'Prescription';
+    // Red for Prescription
+    colorClasses = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800';
   }
   
   const sizeClasses = size === 'sm' 
@@ -31,7 +37,7 @@ const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFun
     : 'px-3 py-1 text-sm';
 
   return (
-    <span className={`inline-block font-semibold rounded-full ${sizeClasses} ${colorClasses}`}>
+    <span className={`inline-block font-bold rounded-full ${sizeClasses} ${colorClasses}`}>
       {statusText}
     </span>
   );
@@ -61,6 +67,11 @@ const MedicineDetail: React.FC<MedicineDetailProps> = ({ medicine, t, language, 
 
   const hasMultipleIngredients = ingredients.length > 1 && ingredients.length === strengthValues.length;
 
+  const handleImageSearch = () => {
+      const query = encodeURIComponent(medicine['Trade Name']);
+      window.open(`https://www.google.com/search?tbm=isch&q=${query}`, '_blank');
+  };
+
   return (
     <div className="bg-light-card dark:bg-dark-card p-4 rounded-xl shadow-sm animate-fade-in space-y-8">
       <div>
@@ -68,6 +79,15 @@ const MedicineDetail: React.FC<MedicineDetailProps> = ({ medicine, t, language, 
           <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl md:text-2xl font-bold leading-7 text-light-text dark:text-dark-text">{medicine['Trade Name'] || 'Unknown Name'}</h2>
               <div className="flex items-center gap-2">
+                  <button
+                      onClick={handleImageSearch}
+                      className="p-2 rounded-full transition-colors text-gray-400 bg-gray-100 dark:bg-slate-800 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      title={t('imagePreview')}
+                  >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                  </button>
                   {user?.role === 'admin' && onEdit && (
                       <button
                           onClick={() => onEdit(medicine)}
@@ -138,13 +158,6 @@ const MedicineDetail: React.FC<MedicineDetailProps> = ({ medicine, t, language, 
                 <dd className="mt-1 text-sm leading-6 sm:col-span-2 sm:mt-0">
                   <LegalStatusBadge status={medicine['Legal Status']} size="base" t={t} />
                 </dd>
-              </div>
-            )}
-
-            {medicine['Product type'] === 'Supplement' && (
-              <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-                <dt className="text-sm font-medium leading-6 text-light-text-secondary dark:text-dark-text-secondary">{t('insuranceCoverage')}</dt>
-                <dd className="mt-1 text-sm leading-6 text-red-600 dark:text-red-400 font-semibold sm:col-span-2 sm:mt-0">{t('notCovered')}</dd>
               </div>
             )}
 

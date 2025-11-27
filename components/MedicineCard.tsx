@@ -20,13 +20,19 @@ interface MedicineCardProps {
 const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFunction }> = ({ status, size = 'sm', t }) => {
   if (!status) return null;
 
-  const statusText = status === 'OTC' ? t('otc') : status === 'Prescription' ? t('prescription') : status;
-  
+  // Force English Text logic
+  const lowerStatus = status.toLowerCase();
+  let statusText = status;
   let colorClasses = 'bg-slate-100 text-light-text-secondary dark:bg-slate-700 dark:text-dark-text-secondary'; // Default
-  if (status === 'OTC') {
-    colorClasses = 'bg-secondary/10 text-green-700 dark:bg-secondary/20 dark:text-green-300';
-  } else if (status === 'Prescription') {
-    colorClasses = 'bg-primary/10 text-primary-dark dark:bg-primary/20 dark:text-primary-light';
+
+  if (lowerStatus.includes('otc')) {
+    statusText = 'OTC';
+    // Green for OTC
+    colorClasses = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800';
+  } else if (lowerStatus.includes('prescription')) {
+    statusText = 'Prescription';
+    // Red for Prescription to distinguish clearly
+    colorClasses = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800';
   }
   
   const sizeClasses = size === 'sm' 
@@ -34,11 +40,39 @@ const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFun
     : 'px-3 py-1 text-sm';
 
   return (
-    <span className={`inline-block font-semibold rounded-full ${sizeClasses} ${colorClasses}`}>
+    <span className={`inline-block font-bold rounded-full ${sizeClasses} ${colorClasses}`}>
       {statusText}
     </span>
   );
 };
+
+const DrugTypeBadge: React.FC<{ type: string; size?: 'sm' | 'base' }> = ({ type, size = 'sm' }) => {
+    if (!type) return null;
+    
+    let displayType = '';
+    let colorClasses = '';
+
+    // Always use English for Brand/Generic as requested
+    if (type === 'NCE') {
+        displayType = 'Brand'; 
+        colorClasses = 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
+    } else if (type === 'Generic') {
+        displayType = 'Generic';
+        colorClasses = 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800';
+    } else {
+        return null; // Don't show if undefined or other types not specified
+    }
+
+    const sizeClasses = size === 'sm' 
+        ? 'px-2.5 py-0.5 text-xs' 
+        : 'px-3 py-1 text-sm';
+
+    return (
+        <span className={`inline-block font-bold rounded-full ${sizeClasses} ${colorClasses} ml-1 rtl:mr-1`}>
+            {displayType}
+        </span>
+    );
+}
 
 
 const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onLongPress, onFindAlternative, isFavorite, onToggleFavorite, t, language }) => {
@@ -126,12 +160,10 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
                 {price.toFixed(2)} <span className="text-xs font-normal text-light-text-secondary dark:text-dark-text-secondary">{t('sar')}</span>
               </div>
             )}
-            <LegalStatusBadge status={medicine['Legal Status']} size="sm" t={t} />
-            {medicine['Product type'] === 'Supplement' && (
-              <span className="inline-block font-semibold rounded-full px-2.5 py-0.5 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                {t('notCoveredShort')}
-              </span>
-            )}
+            <div className="flex flex-col items-end gap-1">
+                <LegalStatusBadge status={medicine['Legal Status']} size="sm" t={t} />
+                <DrugTypeBadge type={medicine.DrugType} size="sm" />
+            </div>
           </div>
         </div>
         <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">

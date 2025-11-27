@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Cosmetic, TFunction, Language } from '../types';
 import SearchableDropdown from './SearchableDropdown';
 import CosmeticCard from './CosmeticCard';
+import SearchIcon from './icons/SearchIcon';
 
 interface CosmeticsViewProps {
   cosmetics: Cosmetic[];
@@ -47,8 +48,6 @@ const CosmeticsView: React.FC<CosmeticsViewProps> = ({
       const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const parts = lowerSearchTerm.split('%').map(escapeRegExp);
       
-      // REMOVED: const prefix = lowerSearchTerm.includes('%') ? '' : '^';
-      // Allow matching anywhere in the string by default (no start anchor)
       const pattern = parts.join('.*');
       
       let searchRegex: RegExp;
@@ -111,14 +110,19 @@ const CosmeticsView: React.FC<CosmeticsViewProps> = ({
           <label htmlFor="cosmetic-search" className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
             {t('productName')}
           </label>
-          <input
-            id="cosmetic-search"
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('searchCosmeticsPlaceholder')}
-            className="w-full h-[42px] px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border-2 border-transparent focus:border-primary rounded-xl outline-none transition-colors"
-          />
+          <div className="relative">
+            <input
+              id="cosmetic-search"
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={t('searchCosmeticsPlaceholder')}
+              className="w-full h-[42px] py-1.5 bg-slate-100 dark:bg-slate-800 border-2 border-transparent focus:border-primary rounded-xl outline-none transition-colors ltr:pl-10 ltr:pr-3 rtl:pr-10 rtl:pl-3"
+            />
+            <div className="absolute top-1/2 ltr:left-3 rtl:right-3 transform -translate-y-1/2 text-gray-400 dark:text-dark-text-secondary pointer-events-none h-5 w-5">
+               <SearchIcon />
+            </div>
+          </div>
         </div>
       </div>
 
