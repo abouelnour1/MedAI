@@ -78,13 +78,14 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
   const [isPressing, setIsPressing] = useState(false);
   const timerRef = useRef<number | undefined>(undefined);
   const isLongPressTriggered = useRef(false);
-  const startPos = useRef({ x: 0, y: 0 });
 
-  const handleStart = (clientX: number, clientY: number) => {
+  // We rely on standard events to manage the visual "pressed" state and the timer.
+  // We rely on the browser's native `onClick` to decide if it was a scroll or a tap.
+
+  const handlePressStart = () => {
       setIsPressing(true);
       isLongPressTriggered.current = false;
-      startPos.current = { x: clientX, y: clientY };
-
+      
       timerRef.current = window.setTimeout(() => {
           isLongPressTriggered.current = true;
           if (navigator.vibrate) navigator.vibrate(50); // Feedback
@@ -93,54 +94,41 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
       }, 500); // 500ms for long press
   };
 
-  const handleEnd = (e: React.MouseEvent | React.TouchEvent) => {
+  const handlePressEnd = () => {
       if (timerRef.current) {
           clearTimeout(timerRef.current);
           timerRef.current = undefined;
       }
       setIsPressing(false);
-      
-      // If it wasn't a long press, trigger short press
-      if (!isLongPressTriggered.current) {
-          // Prevent ghost clicks on touch devices if needed, but here we just call the handler
-          onShortPress();
-      }
   };
 
-  const handleMove = (clientX: number, clientY: number) => {
-      if (timerRef.current) {
-          const moveX = Math.abs(clientX - startPos.current.x);
-          const moveY = Math.abs(clientY - startPos.current.y);
-          if (moveX > 10 || moveY > 10) { // Tolerance for small movements
-              clearTimeout(timerRef.current);
-              timerRef.current = undefined;
-              setIsPressing(false);
-          }
+  // The browser automatically cancels 'click' events if the user scrolls.
+  const handleClick = (e: React.MouseEvent) => {
+      // If a long press was successfully triggered, we prevent the short press action.
+      if (isLongPressTriggered.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
       }
+      onShortPress();
   };
 
   return (
     <div
       className={`bg-light-card dark:bg-dark-card rounded-xl shadow-md overflow-hidden cursor-pointer select-none min-h-min border border-slate-100 dark:border-slate-800 transition-transform duration-100 ${isPressing ? 'scale-[0.98] bg-slate-50 dark:bg-slate-800' : 'active:scale-[0.98]'}`}
-      onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
-      onMouseUp={handleEnd}
-      onMouseLeave={() => {
-          if (timerRef.current) clearTimeout(timerRef.current);
-          setIsPressing(false);
-      }}
-      onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
       
-      onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
-      onTouchEnd={handleEnd}
-      onTouchMove={(e) => handleMove(e.touches[0].clientX, e.touches[0].clientY)}
+      // Timer Logic for Long Press
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={handlePressEnd}
+      onTouchStart={handlePressStart}
+      onTouchEnd={handlePressEnd}
       
+      // Native click handles the "Tap vs Scroll" distinction automatically
+      onClick={handleClick}
+
       onContextMenu={(e) => {
           e.preventDefault();
-          // Fallback context menu handler if touch logic fails or for desktop right-click
-          // But we don't want to double trigger if logic worked.
-          if (!isLongPressTriggered.current && !timerRef.current) {
-               onLongPress(medicine);
-          }
       }}
       role="button"
       tabIndex={0}
@@ -182,7 +170,6 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        // Prevent long press logic from firing
                         if (timerRef.current) clearTimeout(timerRef.current);
                         onToggleFavorite(medicine.RegisterNumber);
                     }}
