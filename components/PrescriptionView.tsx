@@ -46,47 +46,95 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
         const printElement = document.getElementById(prescriptionId);
         if (!printElement) return;
 
-        // Use a standard approach that works reliably across browsers without relying on external CSS
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
             alert("Please allow popups to print.");
             return;
         }
 
-        // Inline CSS for guaranteed styling in the print window
-        const printStyles = `
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #000; }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-            .header-info { text-align: right; font-size: 12px; }
-            .title { text-align: center; text-decoration: underline; font-size: 24px; font-weight: bold; margin: 20px 0; }
-            .section { margin-bottom: 15px; border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
-            .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
-            .row { display: flex; gap: 5px; align-items: baseline; margin-bottom: 4px; }
-            .label { font-weight: bold; width: 120px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-            th { border: 1px solid #000; padding: 8px; background-color: #f0f0f0; font-weight: bold; }
-            td { border: 1px solid #000; padding: 8px; vertical-align: top; }
-            .footer { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-            .signature-box { border: 1px solid #000; height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5px; font-size: 12px; }
-            .stamp { border: 2px solid navy; color: navy; padding: 5px; transform: rotate(-10deg); opacity: 0.7; font-weight: bold; font-family: monospace; text-align: center; }
-            @page { size: A4; margin: 1cm; }
-        `;
-
         const htmlContent = `
             <!DOCTYPE html>
             <html dir="ltr">
             <head>
-                <title>Prescription - ${data.patientName || 'Patient'}</title>
-                <style>${printStyles}</style>
+                <title>Prescription - ${data?.patientName || 'Patient'}</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <script src="https://cdn.tailwindcss.com"></script>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+                    
+                    @page { 
+                        size: A4; 
+                        margin: 0; 
+                    }
+                    
+                    body { 
+                        font-family: 'Poppins', 'Cairo', sans-serif; 
+                        background-color: #f3f4f6;
+                        margin: 0;
+                        padding: 0;
+                        -webkit-print-color-adjust: exact; 
+                        print-color-adjust: exact;
+                        display: flex;
+                        justify-content: center;
+                    }
+                    
+                    .print-page {
+                        width: 210mm;
+                        min-height: 297mm;
+                        padding: 15mm;
+                        margin: 20px auto;
+                        background: white;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                        font-size: 12px;
+                        box-sizing: border-box;
+                    }
+                    
+                    /* Custom overrides to match design exactly */
+                    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+                    .header-info { text-align: right; font-size: 10px; }
+                    .title { text-align: center; text-decoration: underline; font-size: 20px; font-weight: bold; margin: 15px 0; text-transform: uppercase; }
+                    
+                    .section { margin-bottom: 15px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; }
+                    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px; }
+                    .row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+                    .label { font-weight: bold; width: 100px; flex-shrink: 0; }
+                    
+                    /* Table adjustments */
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    th { border: 1px solid #000; padding: 6px; background-color: #f3f4f6; font-weight: bold; text-align: left; }
+                    td { border: 1px solid #000; padding: 6px; vertical-align: top; }
+                    
+                    .footer { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+                    .signature-box { border: 1px solid #000; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5px; font-size: 10px; }
+                    .stamp { border: 2px solid #1e3a8a; color: #1e3a8a; padding: 4px 8px; transform: rotate(-10deg); opacity: 0.8; font-weight: bold; font-family: monospace; text-align: center; font-size: 10px; }
+
+                    /* Override Tailwind text-sm for print to avoid "zoomed" look */
+                    .text-sm { font-size: 11px !important; }
+                    .text-base { font-size: 12px !important; }
+                    .text-xl { font-size: 16px !important; }
+                    .text-2xl { font-size: 20px !important; }
+
+                    @media print {
+                        body { background: none; display: block; }
+                        .print-page { 
+                            width: 100%; 
+                            margin: 0; 
+                            box-shadow: none; 
+                            border: none; 
+                            padding: 10mm; /* Safe print margin */
+                        }
+                    }
+                </style>
             </head>
             <body>
-                ${printElement.innerHTML}
+                <div class="print-page">
+                    ${printElement.innerHTML}
+                </div>
                 <script>
                     window.onload = function() {
                         setTimeout(function() {
                             window.print();
-                            window.close();
-                        }, 500);
+                        }, 1000); // Wait for Tailwind CDN
                     };
                 </script>
             </body>
@@ -125,7 +173,7 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
                 </div>
             </div>
             
-            <h2 className="title text-center text-2xl font-bold underline mb-6">Prescription</h2>
+            <h2 className="title text-center text-2xl font-bold underline mb-6 uppercase">Prescription</h2>
 
             {/* Patient & Doctor Info */}
             <div className="section grid-2 grid grid-cols-2 gap-4 border border-gray-300 p-4 rounded mb-4 text-sm">
