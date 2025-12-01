@@ -52,6 +52,7 @@ import SunIcon from './components/SunIcon';
 import AdminIcon from './components/icons/AdminIcon';
 import DatabaseIcon from './components/icons/DatabaseIcon';
 import HistoryIcon from './components/icons/HistoryIcon';
+import TrashIcon from './components/icons/TrashIcon';
 
 // Normalization functions
 const normalizeMedicine = (item: any): Medicine => ({
@@ -272,18 +273,22 @@ const App: React.FC = () => {
       localStorage.setItem('chat_history', JSON.stringify(chatHistory));
   }, [chatHistory]);
 
-  // Scroll Restore
+  // Scroll Restore Logic - Improved with timeout to ensure content renders
   useLayoutEffect(() => {
     const container = document.getElementById('main-scroll-container');
     if (!container) return;
 
     if (view === 'results' || view === 'cosmeticsSearch') {
+      // Restore scroll when returning to list
       if (scrollPositionRef.current > 0) {
-        container.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' });
+        // Shorter timeout to reduce flicker
+        setTimeout(() => {
+            if(container) container.scrollTop = scrollPositionRef.current;
+        }, 0);
       }
-    } else {
-        // Force reset scroll to top when entering detail views or other pages
-        container.scrollTo({ top: 0, behavior: 'auto' });
+    } else if (view === 'details' || view === 'cosmeticDetails' || view === 'alternatives' || view === 'insuranceDetails') {
+        // Force scroll top when entering details
+        container.scrollTop = 0;
     }
   }, [view]);
 
@@ -297,42 +302,40 @@ const App: React.FC = () => {
     return text;
   }, [language]);
 
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  const toggleTheme = useCallback(() => setTheme(prev => prev === 'light' ? 'dark' : 'light'), []);
 
-  const toggleFavorite = (id: string) => {
+  const toggleFavorite = useCallback((id: string) => {
     setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
-  };
+  }, []);
 
-  const handleAdminClick = () => {
+  const handleAdminClick = useCallback(() => {
       if (user?.role === 'admin') {
           setView('admin');
           setActiveTab('settings');
       }
-  };
+  }, [user]);
 
-  const handleMedicineSelect = (medicine: Medicine) => { 
+  const handleMedicineSelect = useCallback((medicine: Medicine) => { 
       const container = document.getElementById('main-scroll-container');
       if(container) {
           scrollPositionRef.current = container.scrollTop;
       }
       setSelectedMedicine(medicine); 
       setView('details'); 
-  };
+  }, []);
   
-  const handleCosmeticSelect = (cosmetic: Cosmetic) => { 
+  const handleCosmeticSelect = useCallback((cosmetic: Cosmetic) => { 
       const container = document.getElementById('main-scroll-container');
       if(container) {
           scrollPositionRef.current = container.scrollTop;
       }
       setSelectedCosmetic(cosmetic); 
       setView('cosmeticDetails'); 
-  };
+  }, []);
 
-  // --- Strict Alternatives Sorting Logic ---
   const handleFindAlternative = useCallback((medicine: Medicine) => {
     const cleanSciName = medicine['Scientific Name'].toLowerCase().trim();
     
-    // Helper to parse numbers from strength (e.g. "500 mg" -> 500)
     const getStrengthNum = (str: string) => {
         const match = str.match(/(\d+(\.\d+)?)/);
         return match ? parseFloat(match[0]) : -1;
@@ -341,18 +344,15 @@ const App: React.FC = () => {
     const sourceStrength = getStrengthNum(medicine.Strength);
     const sourceForm = medicine.PharmaceuticalForm.toLowerCase();
 
-    // 1. Direct Alternatives (Same Scientific Name)
     const direct = medicines.filter(m => 
         m.RegisterNumber !== medicine.RegisterNumber &&
         m['Scientific Name'].toLowerCase().trim() === cleanSciName
     );
 
-    // Sorting Logic: Strength -> Form -> Alphabetical
     const sortFunction = (a: Medicine, b: Medicine) => {
         const aStrength = getStrengthNum(a.Strength);
         const bStrength = getStrengthNum(b.Strength);
         
-        // 1. Strength Priority
         const aStrengthMatch = aStrength === sourceStrength;
         const bStrengthMatch = bStrength === sourceStrength;
         
@@ -363,7 +363,6 @@ const App: React.FC = () => {
              return aStrength - bStrength; 
         }
 
-        // 2. Form Priority
         const aForm = a.PharmaceuticalForm.toLowerCase();
         const bForm = b.PharmaceuticalForm.toLowerCase();
         const aFormMatch = aForm.includes(sourceForm) || sourceForm.includes(aForm);
@@ -372,13 +371,11 @@ const App: React.FC = () => {
         if (aFormMatch && !bFormMatch) return -1;
         if (!aFormMatch && bFormMatch) return 1;
 
-        // 3. Alphabetical Fallback
         return a['Trade Name'].localeCompare(b['Trade Name']);
     };
 
     direct.sort(sortFunction);
 
-    // 2. Therapeutic Alternatives
     let therapeutic: Medicine[] = [];
     if (medicine.AtcCode1) {
         therapeutic = medicines.filter(m => 
@@ -391,7 +388,6 @@ const App: React.FC = () => {
     setSourceMedicine(medicine);
     setAlternativesResults({ direct, therapeutic });
     
-    // Save current scroll position before switching
     const container = document.getElementById('main-scroll-container');
     if (container) {
         scrollPositionRef.current = container.scrollTop;
@@ -399,22 +395,18 @@ const App: React.FC = () => {
     setView('alternatives');
   }, [medicines]);
 
-  // Handler passed to Assistant to instantly show alternatives
   const handleShowAlternativesFromAssistant = useCallback((medicine: Medicine) => {
-      setIsAssistantOpen(false); // Close modal
+      setIsAssistantOpen(false); 
       handleFindAlternative(medicine);
   }, [handleFindAlternative]);
 
-  // --- Search Logic with Lazy Loading Reset ---
   const effectiveSearchLength = searchTerm.replace(/%/g, '').trim().length;
   const isSearchActive = (effectiveSearchLength >= 3 || forceSearch || filters.productType !== 'all' || filters.priceMin !== '' || filters.priceMax !== '' || filters.pharmaceuticalForm !== '' || filters.manufactureName.length > 0 || filters.legalStatus !== '');
 
-  // Reset pagination limit when search query changes
   useEffect(() => {
       setResultsLimit(20);
   }, [searchTerm, filters, sortBy, textSearchMode, forceSearch]);
 
-  // Reset cosmetics pagination when search changes
   useEffect(() => {
       setCosmeticsLimit(20);
   }, [cosmeticsSearchTerm, selectedBrand]);
@@ -469,8 +461,7 @@ const App: React.FC = () => {
       return results;
   }, [medicines, searchTerm, textSearchMode, filters, sortBy, effectiveSearchLength, forceSearch]);
 
-  // Admin Actions
-  const handleDeleteMedicine = async (medicine: Medicine) => {
+  const handleDeleteMedicine = useCallback(async (medicine: Medicine) => {
       if (!window.confirm(t('confirmDeleteMedicine'))) return;
       setMedicines(prev => {
           const updated = prev.filter(m => m.RegisterNumber !== medicine.RegisterNumber);
@@ -486,9 +477,9 @@ const App: React.FC = () => {
       if (!FIREBASE_DISABLED) {
           try { await deleteDoc(doc(db, 'medicines', medicine.RegisterNumber)); } catch (e) { console.error(e); }
       }
-  };
+  }, [t, selectedMedicine]);
 
-  const handleSaveEditedMedicine = async (syncToCloud: boolean) => {
+  const handleSaveEditedMedicine = useCallback(async (syncToCloud: boolean) => {
       if (!editingMedicine) return;
       setMedicines(prev => {
           const updated = prev.map(m => m.RegisterNumber === editingMedicine.RegisterNumber ? editingMedicine : m);
@@ -512,12 +503,12 @@ const App: React.FC = () => {
       }
       setIsEditMedicineModalOpen(false);
       setEditingMedicine(null);
-  };
+  }, [editingMedicine, selectedMedicine]);
 
-  const handleEditMedicine = (med: Medicine) => { setEditingMedicine({...med}); setIsEditMedicineModalOpen(true); };
-  const handleEditCosmetic = (c: Cosmetic) => { setEditingCosmetic({...c}); setIsEditCosmeticModalOpen(true); };
+  const handleEditMedicine = useCallback((med: Medicine) => { setEditingMedicine({...med}); setIsEditMedicineModalOpen(true); }, []);
+  const handleEditCosmetic = useCallback((c: Cosmetic) => { setEditingCosmetic({...c}); setIsEditCosmeticModalOpen(true); }, []);
   
-  const handleSaveEditedCosmetic = async (syncToCloud: boolean) => {
+  const handleSaveEditedCosmetic = useCallback(async (syncToCloud: boolean) => {
       if (!editingCosmetic) return;
       setCosmetics(prev => {
           const updated = prev.map(c => c.id === editingCosmetic.id ? editingCosmetic : c);
@@ -541,12 +532,30 @@ const App: React.FC = () => {
       }
       setIsEditCosmeticModalOpen(false);
       setEditingCosmetic(null);
-  };
+  }, [editingCosmetic, selectedCosmetic]);
+
+  const handleDeleteCosmetic = useCallback(async (cosmetic: Cosmetic) => {
+      if (!window.confirm(t('confirmDeleteCosmetic'))) return;
+      setCosmetics(prev => {
+          const updated = prev.filter(c => c.id !== cosmetic.id);
+          setItem(COSMETICS_CACHE_KEY, updated).catch(console.error);
+          return updated;
+      });
+      setIsEditCosmeticModalOpen(false);
+      setEditingCosmetic(null);
+      if (selectedCosmetic && selectedCosmetic.id === cosmetic.id) {
+          setSelectedCosmetic(null);
+          setView('cosmeticsSearch');
+      }
+      if (!FIREBASE_DISABLED) {
+          try { await deleteDoc(doc(db, 'cosmetics', cosmetic.id)); } catch (e) { console.error(e); }
+      }
+  }, [t, selectedCosmetic]);
 
   const handleClearFilters = useCallback(() => setFilters({ productType: 'all', priceMin: '', priceMax: '', pharmaceuticalForm: '', manufactureName: [], legalStatus: '' }), []);
   const handleClearSearch = useCallback(() => { setSearchTerm(''); setTextSearchMode('tradeName'); handleClearFilters(); setSortBy('alphabetical'); setView('search'); setForceSearch(false); }, [handleClearFilters]);
   const handleForceSearch = useCallback(() => { if (searchTerm.trim().length > 0) setForceSearch(true); }, [searchTerm]);
-  const handleFilterChange = <K extends keyof Filters>(filterName: K, value: Filters[K]) => setFilters(prevFilters => ({ ...prevFilters, [filterName]: value }));
+  const handleFilterChange = useCallback(<K extends keyof Filters>(filterName: K, value: Filters[K]) => setFilters(prevFilters => ({ ...prevFilters, [filterName]: value })), []);
 
   const uniqueManufactureNames = useMemo(() => Array.from(new Set(medicines.map(m => m['Manufacture Name']))).sort(), [medicines]);
   const uniqueLegalStatuses = useMemo(() => Array.from(new Set(medicines.map(m => m['Legal Status']).filter(Boolean))).sort(), [medicines]);
@@ -563,7 +572,7 @@ const App: React.FC = () => {
 
   const handleBack = useCallback(() => {
       if (view === 'details' || view === 'alternatives') {
-          setView('search');
+          setView('results'); 
       } else if (view === 'cosmeticDetails') {
           setView('cosmeticsSearch');
       } else if (view === 'insuranceDetails') {
@@ -574,14 +583,16 @@ const App: React.FC = () => {
           setView('settings');
       } else if (view === 'verifyEmail') {
           setView('settings');
+      } else if (view === 'results') {
+          setView('search');
+          setSearchTerm('');
       } else {
           setView('search');
           setActiveTab('search');
       }
   }, [view]);
 
-  // Import Handlers
-  const handleImportData = (data: any[]) => {
+  const handleImportData = useCallback((data: any[]) => {
       const normalizedData = data.map(normalizeMedicine);
       setMedicines(prev => {
           const map = new Map();
@@ -593,15 +604,15 @@ const App: React.FC = () => {
       });
       alert(t('importSuccess', { count: data.length }));
       setView('settings');
-  };
+  }, [t]);
 
-  const handleImportInsuranceData = (data: any[]) => {
+  const handleImportInsuranceData = useCallback((data: any[]) => {
       setInsuranceData(prev => [...prev, ...data]);
       alert(t('importSuccess', { count: data.length }));
       setView('settings');
-  };
+  }, [t]);
 
-  const handleImportCosmeticsData = (data: any[]) => {
+  const handleImportCosmeticsData = useCallback((data: any[]) => {
       const normalizedData = data.map((item, idx) => ({ ...item, id: item.id || `custom-${Date.now()}-${idx}` }));
       setCosmetics(prev => {
           const updated = [...prev, ...normalizedData];
@@ -610,9 +621,8 @@ const App: React.FC = () => {
       });
       alert(t('importSuccess', { count: data.length }));
       setView('settings');
-  };
+  }, [t]);
 
-  // ... (Header logic)
   const headerTitle = useMemo(() => {
       if (view === 'details') return selectedMedicine?.['Trade Name'] || 'Details';
       if (view === 'cosmeticDetails') return selectedCosmetic?.SpecificName || 'Details';
@@ -628,31 +638,74 @@ const App: React.FC = () => {
       return view !== 'search' && view !== 'settings' && view !== 'insuranceSearch' && view !== 'cosmeticsSearch';
   }, [view]);
 
-  // --- Handlers for Assistant ---
-  const handleCloseAssistant = (historyToSave: ChatMessage[]) => {
-      setIsAssistantOpen(false);
-  };
-  
-  const handleOpenPrescriptionAssistant = useCallback(() => {
-    if (user?.role !== 'admin' && !user?.prescriptionPrivilege) { alert(t('accessDeniedPrescription')); return; }
-    setAssistantPrompt('##PRESCRIPTION_MODE##'); 
-    setIsAssistantOpen(true);
+  // --- Handlers for Assistant with Security Checks ---
+  const checkAiAccess = useCallback((): boolean => {
+      if (!user) {
+          alert(t('loginRequired'));
+          setView('login');
+          setActiveTab('settings');
+          return false;
+      }
+      return true;
   }, [user, t]);
 
-  const handleOpenAssistantWithContext = (medicine: Medicine) => {
+  const handleOpenAssistant = useCallback(() => {
+      if (!checkAiAccess()) return;
+      setSelectedMedicine(null); 
+      setSelectedCosmetic(null);
+      setAssistantPrompt(''); 
+      setIsAssistantOpen(true); 
+  }, [checkAiAccess]);
+
+  const handleOpenPrescriptionAssistant = useCallback(() => {
+    if (!checkAiAccess()) return;
+    if (user?.role !== 'admin' && !user?.prescriptionPrivilege) { 
+        alert(t('accessDeniedPrescription')); 
+        return; 
+    }
+    setAssistantPrompt('##PRESCRIPTION_MODE##'); 
+    setIsAssistantOpen(true);
+  }, [user, t, checkAiAccess]);
+
+  const handleOpenAssistantWithContext = useCallback((medicine: Medicine) => {
+      if (!checkAiAccess()) return;
       setSelectedMedicine(medicine);
       setAssistantPrompt('');
       setIsAssistantOpen(true);
-  }
+  }, [checkAiAccess]);
+  
+  const handleOpenAssistantWithCosmeticContext = useCallback((cosmetic: Cosmetic) => {
+      if (!checkAiAccess()) return;
+      setSelectedCosmetic(cosmetic);
+      setAssistantPrompt('');
+      setIsAssistantOpen(true);
+  }, [checkAiAccess]);
 
   // --- History Handlers ---
-  const handleDeleteConversation = (id: string) => {
+  const handleDeleteConversation = useCallback((id: string) => {
       setChatHistory(prev => prev.filter(c => c.id !== id));
-  };
+  }, []);
 
-  const handleClearHistory = () => {
+  const handleClearHistory = useCallback(() => {
       setChatHistory([]);
-  };
+  }, []);
+
+  const handleMedicineLongPress = useCallback((m: Medicine) => {
+        if (checkAiAccess()) {
+            setSelectedMedicine(m); setAssistantPrompt(''); setIsAssistantOpen(true); 
+        }
+  }, [checkAiAccess]);
+
+  const handleCosmeticLongPress = useCallback((c: Cosmetic) => {
+        if (checkAiAccess()) {
+            setSelectedCosmetic(c);
+            setAssistantPrompt('');
+            setIsAssistantOpen(true);
+        }
+  }, [checkAiAccess]);
+
+  const handleLoadMoreResults = useCallback(() => setResultsLimit(prev => prev + 20), []);
+  const handleLoadMoreCosmetics = useCallback(() => setCosmeticsLimit(prev => prev + 20), []);
 
   const renderContent = () => {
       if (view === 'login') return <LoginView t={t} onSwitchToRegister={() => setView('register')} onLoginSuccess={() => { setActiveTab('search'); setView('search'); }} />;
@@ -673,38 +726,70 @@ const App: React.FC = () => {
       }
 
       if (activeTab === 'search') {
-          if (view === 'details' && selectedMedicine) return <MedicineDetail medicine={selectedMedicine} t={t} language={language} isFavorite={favorites.includes(selectedMedicine.RegisterNumber)} onToggleFavorite={toggleFavorite} user={user} onEdit={handleEditMedicine} onOpenAssistant={() => handleOpenAssistantWithContext(selectedMedicine)} />;
-          if (view === 'alternatives' && sourceMedicine && alternativesResults) return <AlternativesView sourceMedicine={sourceMedicine} alternatives={alternativesResults} onMedicineSelect={handleMedicineSelect} onMedicineLongPress={(m) => { setSelectedMedicine(m); setAssistantPrompt(''); setIsAssistantOpen(true); }} onFindAlternative={handleFindAlternative} favorites={favorites} onToggleFavorite={toggleFavorite} t={t} language={language} />;
-          
+          // Optimization: Keep list mounted but hidden when on details/alternatives
+          // This preserves scroll position and state, fixing lag
+          const showList = view === 'search' || view === 'results';
+          const isDetails = view === 'details' && selectedMedicine;
+          const isAlternatives = view === 'alternatives' && sourceMedicine && alternativesResults;
+
           return (
               <>
-                <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} textSearchMode={textSearchMode} setTextSearchMode={setTextSearchMode} isSearchActive={isSearchActive} onClearSearch={handleClearSearch} onForceSearch={handleForceSearch} onBarcodeScanClick={() => setIsBarcodeScannerOpen(true)} t={t} />
-                <div className="flex gap-2 mt-2">
-                    <FilterButton onClick={() => setIsFilterModalOpen(true)} activeCount={activeFilterCount} t={t} />
-                    <SortControls sortBy={sortBy} setSortBy={setSortBy} t={t} />
+                <div className={showList ? 'contents' : 'hidden'}>
+                    <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} textSearchMode={textSearchMode} setTextSearchMode={setTextSearchMode} isSearchActive={isSearchActive} onClearSearch={handleClearSearch} onForceSearch={handleForceSearch} onBarcodeScanClick={() => setIsBarcodeScannerOpen(true)} t={t} />
+                    <div className="flex gap-2 mt-2">
+                        <FilterButton onClick={() => setIsFilterModalOpen(true)} activeCount={activeFilterCount} t={t} />
+                        <SortControls sortBy={sortBy} setSortBy={setSortBy} t={t} />
+                    </div>
+                    <div className="mt-4">
+                        {isSearchActive ? (
+                            <ResultsList 
+                                medicines={filteredMedicines} 
+                                onMedicineSelect={handleMedicineSelect} 
+                                onMedicineLongPress={handleMedicineLongPress} 
+                                onFindAlternative={handleFindAlternative} 
+                                favorites={favorites} 
+                                onToggleFavorite={toggleFavorite} 
+                                t={t} 
+                                language={language} 
+                                resultsState={filteredMedicines.length > 0 ? 'loaded' : 'empty'}
+                                limit={resultsLimit}
+                                onLoadMore={handleLoadMoreResults}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-20 opacity-80 pointer-events-none select-none">
+                                <h2 className="text-xl font-bold text-gray-400 dark:text-slate-600 font-poppins tracking-wide">PharmaSource</h2>
+                                <div className="h-1 w-12 bg-primary/30 rounded-full mt-2"></div>
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="mt-4">
-                    {isSearchActive ? (
-                        <ResultsList 
-                            medicines={filteredMedicines} 
-                            onMedicineSelect={handleMedicineSelect} 
-                            onMedicineLongPress={(m) => { setSelectedMedicine(m); setAssistantPrompt(''); setIsAssistantOpen(true); }} 
-                            onFindAlternative={handleFindAlternative} 
-                            favorites={favorites} 
-                            onToggleFavorite={toggleFavorite} 
-                            t={t} 
-                            language={language} 
-                            resultsState={filteredMedicines.length > 0 ? 'loaded' : 'empty'}
-                            limit={resultsLimit}
-                            onLoadMore={() => setResultsLimit(prev => prev + 20)}
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-20 opacity-80 pointer-events-none select-none">
-                            <h2 className="text-xl font-bold text-gray-400 dark:text-slate-600 font-poppins tracking-wide">PharmaSource</h2>
-                            <div className="h-1 w-12 bg-primary/30 rounded-full mt-2"></div>
-                        </div>
-                    )}
-                </div>
+
+                {isDetails && (
+                    <MedicineDetail 
+                        medicine={selectedMedicine!} 
+                        t={t} 
+                        language={language} 
+                        isFavorite={favorites.includes(selectedMedicine!.RegisterNumber)} 
+                        onToggleFavorite={toggleFavorite} 
+                        user={user} 
+                        onEdit={handleEditMedicine} 
+                        onOpenAssistant={() => handleOpenAssistantWithContext(selectedMedicine!)} 
+                    />
+                )}
+
+                {isAlternatives && (
+                    <AlternativesView 
+                        sourceMedicine={sourceMedicine!} 
+                        alternatives={alternativesResults!} 
+                        onMedicineSelect={handleMedicineSelect} 
+                        onMedicineLongPress={handleMedicineLongPress} 
+                        onFindAlternative={handleFindAlternative} 
+                        favorites={favorites} 
+                        onToggleFavorite={toggleFavorite} 
+                        t={t} 
+                        language={language} 
+                    />
+                )}
               </>
           );
       }
@@ -723,12 +808,8 @@ const App: React.FC = () => {
             selectedBrand={selectedBrand} 
             setSelectedBrand={setSelectedBrand}
             limit={cosmeticsLimit}
-            onLoadMore={() => setCosmeticsLimit(prev => prev + 20)}
-            onCosmeticLongPress={(c) => {
-                setSelectedCosmetic(c);
-                setAssistantPrompt('');
-                setIsAssistantOpen(true);
-            }}
+            onLoadMore={handleLoadMoreCosmetics}
+            onCosmeticLongPress={handleCosmeticLongPress}
           />;
       }
 
@@ -770,7 +851,7 @@ const App: React.FC = () => {
                   
                   {/* AI Activity Log Button */}
                   <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm overflow-hidden">
-                      <button onClick={() => setView('aiHistory')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-slate-700">
+                      <button onClick={() => { if(checkAiAccess()) setView('aiHistory'); }} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-slate-700">
                           <span className="flex items-center gap-3"><div className="w-5 h-5 text-primary"><HistoryIcon /></div> {t('aiActivityLog')}</span>
                       </button>
                   </div>
@@ -810,7 +891,7 @@ const App: React.FC = () => {
         onAdminClick={handleAdminClick}
         view={view}
       />
-      <main id="main-scroll-container" className="flex-grow container mx-auto px-4 space-y-4 transition-all duration-300 max-w-7xl overflow-y-auto pt-[90px] pb-[90px]">
+      <main id="main-scroll-container" className={`flex-grow mx-auto px-4 space-y-4 transition-all duration-300 overflow-y-auto pt-[90px] pb-[90px] ${view === 'admin' ? 'w-full max-w-[98%]' : 'container max-w-7xl'}`}>
         {renderContent()}
       </main>
       <BottomNavBar 
@@ -828,12 +909,7 @@ const App: React.FC = () => {
       />
       <div className="fixed bottom-24 right-4 z-30">
           <FloatingAssistantButton 
-            onClick={() => { 
-                setSelectedMedicine(null); 
-                setSelectedCosmetic(null);
-                setAssistantPrompt(''); 
-                setIsAssistantOpen(true); 
-            }} 
+            onClick={handleOpenAssistant} 
             onLongPress={handleOpenPrescriptionAssistant} 
             t={t} 
             language={language} 
@@ -842,13 +918,14 @@ const App: React.FC = () => {
       <AssistantModal 
         isOpen={isAssistantOpen} 
         onSaveAndClose={(hist) => { 
-            // Use safe optional chaining for parts[0]
-            setChatHistory(prev => [...prev, { 
-                id: Date.now().toString(), 
-                title: hist[0]?.parts?.[0]?.text?.slice(0, 30) || 'Chat', 
-                messages: hist, 
-                timestamp: Date.now() 
-            }]); 
+            if (hist && hist.length > 0) {
+              setChatHistory(prev => [...prev, { 
+                  id: Date.now().toString(), 
+                  title: hist[0]?.parts?.[0]?.text?.slice(0, 30) || 'Chat', 
+                  messages: hist, 
+                  timestamp: Date.now() 
+              }]); 
+            }
             setIsAssistantOpen(false); 
             setCurrentChatHistory([]); 
         }} 
@@ -959,57 +1036,85 @@ const App: React.FC = () => {
                                     <input type="text" value={editingMedicine.RegisterNumber} disabled className="w-full mt-1 p-2.5 bg-slate-200 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-gray-500 cursor-not-allowed" />
                                 </div>
                                 <div>
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('oldRegisterNumber')}</label>
+                                    <input type="text" value={editingMedicine['Old register Number']} onChange={e => setEditingMedicine({...editingMedicine, "Old register Number": e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('atcCode')}</label>
+                                    <input type="text" value={editingMedicine.AtcCode1} onChange={e => setEditingMedicine({...editingMedicine, AtcCode1: e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
+                                <div>
                                     <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('referenceNumber')}</label>
                                     <input type="text" value={editingMedicine.ReferenceNumber} onChange={e => setEditingMedicine({...editingMedicine, ReferenceNumber: e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
                                 </div>
-                                <div className="sm:col-span-2">
-                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('descriptionCode')}</label>
-                                    <input type="text" value={editingMedicine['Description Code']} onChange={e => setEditingMedicine({...editingMedicine, "Description Code": e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
-                                </div>
                             </div>
                         </div>
-                        <div className="flex flex-wrap justify-end gap-2 pt-4 flex-shrink-0 border-t border-gray-200 dark:border-slate-700 mt-2">
-                            <button type="button" onClick={() => handleDeleteMedicine(editingMedicine)} className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium mr-auto border border-red-100">{t('delete')}</button>
-                            <button type="button" onClick={() => setIsEditMedicineModalOpen(false)} className="px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm font-medium">{t('cancel')}</button>
-                            <button type="button" onClick={() => handleSaveEditedMedicine(false)} className="px-4 py-2 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-medium">{t('saveLocalOnly')}</button>
-                            <button type="button" onClick={() => handleSaveEditedMedicine(true)} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-sm flex items-center gap-2" disabled={FIREBASE_DISABLED}>
-                                {t('saveAndSync')}
-                            </button>
+
+                        <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <button onClick={() => handleDeleteMedicine(editingMedicine)} className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"><TrashIcon /> {t('delete')}</button>
+                            <div className="flex gap-3">
+                                <button onClick={() => setIsEditMedicineModalOpen(false)} className="px-5 py-2.5 bg-white border border-slate-300 dark:bg-transparent dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-bold text-slate-700 dark:text-slate-300">{t('cancel')}</button>
+                                <div className="flex flex-col gap-1 sm:flex-row">
+                                    <button onClick={() => handleSaveEditedMedicine(false)} className="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-bold shadow-lg shadow-primary/30">{t('saveLocalOnly')}</button>
+                                    <button onClick={() => handleSaveEditedMedicine(true)} disabled={FIREBASE_DISABLED} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold shadow-lg shadow-blue-600/30 disabled:bg-slate-400 disabled:cursor-not-allowed">{t('saveAndSync')}</button>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
             </div>
       )}
+
+      {/* Edit Cosmetic Modal */}
       {isEditCosmeticModalOpen && editingCosmetic && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setIsEditCosmeticModalOpen(false)}>
                 <div className="bg-white dark:bg-dark-card p-6 rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col mt-8 sm:mt-0" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4 flex-shrink-0">Edit Cosmetic</h3>
                     <form onSubmit={(e) => e.preventDefault()} className="flex-grow flex flex-col overflow-hidden">
-                        <div className="space-y-3 overflow-y-auto pr-2">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="sm:col-span-2"><label className="text-sm font-medium">{t('brandName')}</label><input type="text" value={editingCosmetic.BrandName} onChange={e => setEditingCosmetic({...editingCosmetic, BrandName: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required /></div>
+                        <div className="space-y-4 overflow-y-auto pr-2 pb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="sm:col-span-2">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('brandName')}</label>
+                                    <input type="text" value={editingCosmetic.BrandName} onChange={e => setEditingCosmetic({...editingCosmetic, BrandName: e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('productName')} (En)</label>
+                                    <input type="text" value={editingCosmetic.SpecificName} onChange={e => setEditingCosmetic({...editingCosmetic, SpecificName: e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('productName')} (Ar)</label>
+                                    <input type="text" value={editingCosmetic.SpecificNameAr} onChange={e => setEditingCosmetic({...editingCosmetic, SpecificNameAr: e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
                                 
-                                <div><label className="text-sm font-medium">Product Name (En)</label><input type="text" value={editingCosmetic.SpecificName} onChange={e => setEditingCosmetic({...editingCosmetic, SpecificName: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" required/></div>
-                                <div><label className="text-sm font-medium">Product Name (Ar)</label><input type="text" dir="rtl" value={editingCosmetic.SpecificNameAr} onChange={e => setEditingCosmetic({...editingCosmetic, SpecificNameAr: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                                
-                                <div><label className="text-sm font-medium">Category (En)</label><input type="text" value={editingCosmetic.FirstSubCategoryEn} onChange={e => setEditingCosmetic({...editingCosmetic, FirstSubCategoryEn: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                                <div><label className="text-sm font-medium">Category (Ar)</label><input type="text" dir="rtl" value={editingCosmetic.FirstSubCategoryAr} onChange={e => setEditingCosmetic({...editingCosmetic, FirstSubCategoryAr: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                                
-                                <div><label className="text-sm font-medium">Sub-Category (En)</label><input type="text" value={editingCosmetic.SecondSubCategoryEn} onChange={e => setEditingCosmetic({...editingCosmetic, SecondSubCategoryEn: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                                <div><label className="text-sm font-medium">Sub-Category (Ar)</label><input type="text" dir="rtl" value={editingCosmetic.SecondSubCategoryAr} onChange={e => setEditingCosmetic({...editingCosmetic, SecondSubCategoryAr: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Category (En)</label>
+                                    <input type="text" value={editingCosmetic.FirstSubCategoryEn} onChange={e => setEditingCosmetic({...editingCosmetic, FirstSubCategoryEn: e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Category (Ar)</label>
+                                    <input type="text" value={editingCosmetic.FirstSubCategoryAr} onChange={e => setEditingCosmetic({...editingCosmetic, FirstSubCategoryAr: e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
 
-                                <div className="sm:col-span-2"><label className="text-sm font-medium">Active Ingredient</label><input type="text" value={editingCosmetic["Active ingredient"]} onChange={e => setEditingCosmetic({...editingCosmetic, "Active ingredient": e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" /></div>
-                                <div className="sm:col-span-2"><label className="text-sm font-medium">Key Ingredients</label><textarea value={editingCosmetic["Key Ingredients"] || ''} onChange={e => setEditingCosmetic({...editingCosmetic, "Key Ingredients": e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" rows={2} /></div>
-                                <div className="sm:col-span-2"><label className="text-sm font-medium">Highlights</label><textarea value={editingCosmetic.Highlights || ''} onChange={e => setEditingCosmetic({...editingCosmetic, Highlights: e.target.value})} className="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded" rows={2} /></div>
+                                <div className="sm:col-span-2">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t('quickActionIngredient')}</label>
+                                    <textarea rows={2} value={editingCosmetic['Active ingredient']} onChange={e => setEditingCosmetic({...editingCosmetic, "Active ingredient": e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
+                                 <div className="sm:col-span-2">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Key Ingredients</label>
+                                    <textarea rows={2} value={editingCosmetic['Key Ingredients']} onChange={e => setEditingCosmetic({...editingCosmetic, "Key Ingredients": e.target.value})} className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary outline-none" />
+                                </div>
                             </div>
                         </div>
-                        <div className="flex flex-wrap justify-end gap-2 pt-4 flex-shrink-0 border-t border-gray-200 dark:border-slate-700 mt-2">
-                            <button type="button" onClick={() => setIsEditCosmeticModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg text-sm font-medium">{t('cancel')}</button>
-                            <button type="button" onClick={() => handleSaveEditedCosmetic(false)} className="px-4 py-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-lg text-sm font-medium">{t('saveLocalOnly')}</button>
-                            <button type="button" onClick={() => handleSaveEditedCosmetic(true)} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-sm flex items-center gap-2" disabled={FIREBASE_DISABLED}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                                {t('saveAndSync')}
-                            </button>
+
+                        <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <button onClick={() => handleDeleteCosmetic(editingCosmetic)} className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"><TrashIcon /> {t('delete')}</button>
+                            <div className="flex gap-3">
+                                <button onClick={() => setIsEditCosmeticModalOpen(false)} className="px-5 py-2.5 bg-white border border-slate-300 dark:bg-transparent dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-bold text-slate-700 dark:text-slate-300">{t('cancel')}</button>
+                                <div className="flex flex-col gap-1 sm:flex-row">
+                                    <button onClick={() => handleSaveEditedCosmetic(false)} className="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-bold shadow-lg shadow-primary/30">{t('saveLocalOnly')}</button>
+                                    <button onClick={() => handleSaveEditedCosmetic(true)} disabled={FIREBASE_DISABLED} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold shadow-lg shadow-blue-600/30 disabled:bg-slate-400 disabled:cursor-not-allowed">{t('saveAndSync')}</button>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>

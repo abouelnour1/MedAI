@@ -34,7 +34,7 @@ const LegalStatusBadge: React.FC<{ status: string; size?: 'sm' | 'base', t: TFun
     : 'px-3 py-1 text-sm';
 
   return (
-    <span className={`inline-block font-semibold rounded-full ${sizeClasses} ${colorClasses}`}>
+    <span className={`inline-block font-semibold rounded-full ${sizeClasses} ${colorClasses} whitespace-nowrap`}>
       {statusText}
     </span>
   );
@@ -61,12 +61,11 @@ const DrugTypeBadge: React.FC<{ type: string; size?: 'sm' | 'base', t: TFunction
         : 'px-3 py-1 text-sm';
 
     return (
-        <span className={`inline-block font-bold rounded-full ${sizeClasses} ${colorClasses} ml-1 rtl:mr-1`}>
+        <span className={`inline-block font-bold rounded-full ${sizeClasses} ${colorClasses} whitespace-nowrap`}>
             {displayType}
         </span>
     );
 }
-
 
 const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onLongPress, onFindAlternative, isFavorite, onToggleFavorite, t, language }) => {
   if (!medicine) return null; 
@@ -134,9 +133,13 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
       onShortPress();
   };
 
+  const productControl = medicine['Product Control'] || '';
+  const isControlled = productControl.toLowerCase().includes('controlled') && !productControl.toLowerCase().includes('uncontrolled');
+  const isRestricted = productControl.toLowerCase().includes('restricted');
+
   return (
     <div
-      className={`bg-light-card dark:bg-dark-card rounded-xl shadow-md overflow-hidden cursor-pointer select-none min-h-min border border-slate-100 dark:border-slate-800 transition-transform duration-100 ${isPressing ? 'scale-[0.98] bg-slate-50 dark:bg-slate-800' : 'active:scale-[0.98]'}`}
+      className={`relative bg-light-card dark:bg-dark-card rounded-xl shadow-md overflow-hidden cursor-pointer select-none min-h-min border border-slate-100 dark:border-slate-800 transition-transform duration-100 ${isPressing ? 'scale-[0.98] bg-slate-50 dark:bg-slate-800' : 'active:scale-[0.98]'}`}
       
       onMouseDown={handlePressStart}
       onMouseUp={handlePressEnd}
@@ -155,8 +158,9 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
       tabIndex={0}
       aria-label={t('viewDetails', { name: medicine['Trade Name'] })}
     >
-      <div className="p-3 pointer-events-none"> {/* content ignores pointer events to let parent handle clicks */}
-        <div className="flex items-start justify-between gap-4">
+      
+      <div className="p-3 pointer-events-none"> 
+        <div className="flex items-start justify-between gap-3">
           <div className="flex-grow min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-light-text-secondary dark:text-dark-text-secondary mb-1">
                 <FactoryIcon />
@@ -165,14 +169,21 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
               <h2 className="text-base font-bold text-light-text dark:text-dark-text break-words whitespace-normal leading-tight mb-1" {...rtlTruncateFixProps}>{medicine['Trade Name']}</h2>
               <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary break-words whitespace-normal leading-snug" {...rtlTruncateFixProps}>{medicine['Scientific Name']}</p>
           </div>
-          <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+          <div className="flex-shrink-0 flex flex-col items-end gap-2 mt-1">
             {!isNaN(price) && (
               <div className="text-accent text-lg font-bold whitespace-nowrap">
                 {price.toFixed(2)} <span className="text-xs font-normal text-light-text-secondary dark:text-dark-text-secondary">{t('sar')}</span>
               </div>
             )}
-            <div className="flex flex-col items-end gap-1">
-                <LegalStatusBadge status={medicine['Legal Status']} size="sm" t={t} />
+            <div className="flex flex-col items-end gap-1.5">
+                {/* Product Control replaces Legal Status if exists */}
+                {(isControlled || isRestricted) ? (
+                    <span className={`inline-block font-bold rounded-full px-2.5 py-0.5 text-xs text-white whitespace-nowrap shadow-sm ${isControlled ? 'bg-red-600' : 'bg-orange-500'}`}>
+                        {isControlled ? 'CONTROLLED' : 'RESTRICTED'}
+                    </span>
+                ) : (
+                    <LegalStatusBadge status={medicine['Legal Status']} size="sm" t={t} />
+                )}
                 <DrugTypeBadge type={medicine.DrugType} size="sm" t={t} />
             </div>
           </div>
@@ -223,4 +234,4 @@ const MedicineCard: React.FC<MedicineCardProps> = ({ medicine, onShortPress, onL
   );
 };
 
-export default MedicineCard;
+export default React.memo(MedicineCard);

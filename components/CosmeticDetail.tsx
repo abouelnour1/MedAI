@@ -25,10 +25,8 @@ interface CosmeticDetailProps {
 
 const CosmeticDetail: React.FC<CosmeticDetailProps> = ({ cosmetic, t, language, user, onEdit }) => {
   const handleImageSearch = () => {
-      const brand = cosmetic.BrandName || '';
-      const name = cosmetic.SpecificName || '';
-      const query = `${brand} ${name}`;
-      
+      // Use Specific Name Only for better results
+      const query = cosmetic.SpecificName || '';
       const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
       window.open(url, '_blank');
   };

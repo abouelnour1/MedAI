@@ -173,6 +173,7 @@ export interface User {
   lastName?: string;
   role: 'admin' | 'premium'; 
   aiRequestCount: number;
+  customAiLimit?: number;
   lastRequestDate: string; 
   status: 'active' | 'pending';
   emailVerified: boolean; 
@@ -195,6 +196,9 @@ export type AuthContextType = {
   reloadUser: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   isLoading: boolean;
+  // Social Login
+  loginWithGoogle: () => Promise<void>;
+  loginWithApple: () => Promise<void>;
   // Admin functions
   getAllUsers: () => User[];
   updateUser: (user: User) => void;

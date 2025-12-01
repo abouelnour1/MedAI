@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { Cosmetic, TFunction, Language } from '../types';
 import SearchableDropdown from './SearchableDropdown';
 import CosmeticCard from './CosmeticCard';
@@ -34,7 +34,7 @@ const CosmeticsView: React.FC<CosmeticsViewProps> = ({
     onCosmeticLongPress
 }) => {
   const loaderRef = useRef<HTMLDivElement>(null);
-
+  
   // Lazy Loading Observer
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -96,25 +96,26 @@ const CosmeticsView: React.FC<CosmeticsViewProps> = ({
     return results;
   }, [cosmetics, selectedBrand, searchTerm]);
   
-  const showResults = selectedBrand || searchTerm.replace(/%/g, '').trim().length >= 3;
+  const showResults = (selectedBrand || searchTerm.replace(/%/g, '').trim().length >= 3);
   const displayedCosmetics = filteredCosmetics.slice(0, limit);
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="bg-white dark:bg-dark-card p-4 rounded-xl shadow-sm space-y-4">
         <div>
-          <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
-            {t('brandName')}
-          </label>
-          <SearchableDropdown
-            ariaLabel={t('brandName')}
-            options={uniqueBrands}
-            value={selectedBrand}
-            onChange={(value) => setSelectedBrand(Array.isArray(value) ? '' : value)}
-            placeholder={t('allBrands')}
-            t={t}
-          />
+            <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                {t('brandName')}
+            </label>
+            <SearchableDropdown
+                ariaLabel={t('brandName')}
+                options={uniqueBrands}
+                value={selectedBrand}
+                onChange={(value) => setSelectedBrand(Array.isArray(value) ? '' : value)}
+                placeholder={t('allBrands')}
+                t={t}
+            />
         </div>
+
         <div>
           <label htmlFor="cosmetic-search" className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
             {t('productName')}
@@ -145,26 +146,26 @@ const CosmeticsView: React.FC<CosmeticsViewProps> = ({
 
       {showResults ? (
         displayedCosmetics.length > 0 ? (
-          <div className="space-y-3">
+        <div className="space-y-3">
             {displayedCosmetics.map(cosmetic => (
-              <CosmeticCard 
+            <CosmeticCard 
                 key={cosmetic.id} 
                 cosmetic={cosmetic} 
                 t={t} 
                 language={language}
                 onClick={() => onSelectCosmetic(cosmetic)}
                 onLongPress={onCosmeticLongPress}
-              />
+            />
             ))}
             {filteredCosmetics.length > limit && (
                 <div ref={loaderRef} className="py-4 text-center text-sm text-gray-400">{t('loadMore') || 'Loading more...'}</div>
             )}
-          </div>
+        </div>
         ) : (
-          <div className="text-center py-10 px-4 bg-light-card dark:bg-dark-card rounded-xl shadow-sm">
+        <div className="text-center py-10 px-4 bg-light-card dark:bg-dark-card rounded-xl shadow-sm">
             <h3 className="text-lg font-semibold text-light-text-secondary dark:text-dark-text-secondary">{t('noResultsTitle')}</h3>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mt-1">{t('noResultsSubtitle')}</p>
-          </div>
+        </div>
         )
       ) : null}
     </div>

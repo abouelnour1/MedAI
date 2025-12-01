@@ -6,12 +6,12 @@ import EditIcon from './icons/EditIcon';
 import CameraIcon from './icons/CameraIcon';
 import AssistantIcon from './icons/AssistantIcon';
 
-const DetailRow: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => {
+const DetailRow: React.FC<{ label: string; value?: string | number | null; valueClassName?: string }> = ({ label, value, valueClassName }) => {
   if (!value || String(value).trim() === '') return null;
   return (
     <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
       <dt className="text-sm font-medium leading-6 text-light-text-secondary dark:text-dark-text-secondary">{label}</dt>
-      <dd className="mt-1 text-sm leading-6 text-light-text dark:text-dark-text sm:col-span-2 sm:mt-0">{value}</dd>
+      <dd className={`mt-1 text-sm leading-6 text-light-text dark:text-dark-text sm:col-span-2 sm:mt-0 ${valueClassName || ''}`}>{value}</dd>
     </div>
   );
 };
@@ -76,6 +76,10 @@ const MedicineDetail: React.FC<MedicineDetailProps> = ({ medicine, t, language, 
       const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
       window.open(url, '_blank');
   };
+
+  const productControl = medicine['Product Control'] || '';
+  const isControlled = productControl.toLowerCase().includes('controlled') && !productControl.toLowerCase().includes('uncontrolled');
+  const isRestricted = productControl.toLowerCase().includes('restricted');
 
   return (
     <div className="bg-light-card dark:bg-dark-card p-4 rounded-xl shadow-sm animate-fade-in space-y-8">
@@ -167,11 +171,17 @@ const MedicineDetail: React.FC<MedicineDetailProps> = ({ medicine, t, language, 
             <DetailRow label={t('pharmaceuticalForm')} value={medicine.PharmaceuticalForm} />
             <DetailRow label={t('packageSize')} value={`${medicine.PackageSize || ''} ${medicine.PackageTypes || ''}`.trim()} />
             
-            {medicine['Legal Status'] && (
+            {(medicine['Legal Status'] || isControlled || isRestricted) && (
               <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                 <dt className="text-sm font-medium leading-6 text-light-text-secondary dark:text-dark-text-secondary">{t('legalStatus')}</dt>
                 <dd className="mt-1 text-sm leading-6 sm:col-span-2 sm:mt-0">
-                  <LegalStatusBadge status={medicine['Legal Status']} size="base" t={t} />
+                  { (isControlled || isRestricted) ? (
+                      <span className={`inline-block font-bold rounded-full px-3 py-1 text-sm text-white whitespace-nowrap shadow-sm ${isControlled ? 'bg-red-600' : 'bg-orange-500'}`}>
+                          {isControlled ? 'CONTROLLED' : 'RESTRICTED'}
+                      </span>
+                  ) : (
+                      <LegalStatusBadge status={medicine['Legal Status']} size="base" t={t} />
+                  )}
                 </dd>
               </div>
             )}

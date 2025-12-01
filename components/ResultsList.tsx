@@ -89,4 +89,4 @@ const ResultsList: React.FC<ResultsListProps> = ({
   );
 };
 
-export default ResultsList;
+export default React.memo(ResultsList);

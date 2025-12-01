@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { TFunction, PrescriptionData } from '../types';
 
 const parsePrescription = (content: string): Omit<PrescriptionData, 'id'> | null => {
@@ -30,6 +30,7 @@ const parsePrescription = (content: string): Omit<PrescriptionData, 'id'> | null
 
 const PrescriptionView: React.FC<{ content?: string; prescriptionData?: PrescriptionData; t: TFunction }> = ({ content, prescriptionData, t }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
     
     const data = useMemo(() => {
         if (prescriptionData) return prescriptionData;
@@ -40,236 +41,417 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
         return null;
     }, [content, prescriptionData]);
 
-    const prescriptionId = useMemo(() => data?.id || `prescription-${Date.now()}`, [data]);
-
     const handlePrint = () => {
-        const printElement = document.getElementById(prescriptionId);
-        if (!printElement) return;
-
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            alert("Please allow popups to print.");
-            return;
-        }
+        if (!iframeRef.current || !data) return;
+        
+        const iframe = iframeRef.current;
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        
+        if (!doc) return;
 
         const htmlContent = `
             <!DOCTYPE html>
             <html dir="ltr">
             <head>
-                <title>Prescription - ${data?.patientName || 'Patient'}</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <script src="https://cdn.tailwindcss.com"></script>
+                <title>Prescription - ${data.patientName || 'Patient'}</title>
                 <style>
                     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap');
-                    
-                    @page { 
-                        size: A4; 
-                        margin: 0; 
-                    }
-                    
                     body { 
                         font-family: 'Poppins', 'Cairo', sans-serif; 
-                        background-color: #f3f4f6;
-                        margin: 0;
-                        padding: 0;
+                        margin: 0; 
+                        padding: 0; 
+                        background: #fff; 
+                        color: #000;
                         -webkit-print-color-adjust: exact; 
-                        print-color-adjust: exact;
-                        display: flex;
-                        justify-content: center;
                     }
-                    
-                    .print-page {
-                        width: 210mm;
-                        min-height: 297mm;
-                        padding: 15mm;
-                        margin: 20px auto;
-                        background: white;
-                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-                        font-size: 12px;
+                    .rx-container {
+                        max-width: 210mm;
+                        margin: 0 auto;
+                        padding: 10mm;
+                        min-height: 297mm; /* A4 height */
+                        position: relative;
                         box-sizing: border-box;
                     }
                     
-                    /* Custom overrides to match design exactly */
-                    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-                    .header-info { text-align: right; font-size: 10px; }
-                    .title { text-align: center; text-decoration: underline; font-size: 20px; font-weight: bold; margin: 15px 0; text-transform: uppercase; }
-                    
-                    .section { margin-bottom: 15px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; }
-                    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px; }
-                    .row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
-                    .label { font-weight: bold; width: 100px; flex-shrink: 0; }
-                    
-                    /* Table adjustments */
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-                    th { border: 1px solid #000; padding: 6px; background-color: #f3f4f6; font-weight: bold; text-align: left; }
-                    td { border: 1px solid #000; padding: 6px; vertical-align: top; }
-                    
-                    .footer { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-                    .signature-box { border: 1px solid #000; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5px; font-size: 10px; }
-                    .stamp { border: 2px solid #1e3a8a; color: #1e3a8a; padding: 4px 8px; transform: rotate(-10deg); opacity: 0.8; font-weight: bold; font-family: monospace; text-align: center; font-size: 10px; }
+                    /* Header Section */
+                    .header {
+                        border-bottom: 3px solid #1e293b;
+                        padding-bottom: 15px;
+                        margin-bottom: 25px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                    }
+                    .hospital-info h1 {
+                        margin: 0;
+                        font-size: 24px;
+                        color: #0f172a;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        font-weight: 800;
+                    }
+                    .hospital-info p {
+                        margin: 4px 0 0;
+                        font-size: 11px;
+                        color: #64748b;
+                        max-width: 300px;
+                    }
+                    .meta-data {
+                        text-align: right;
+                        font-size: 11px;
+                        line-height: 1.5;
+                        color: #334155;
+                    }
+                    .meta-data strong { color: #000; }
 
-                    /* Override Tailwind text-sm for print to avoid "zoomed" look */
-                    .text-sm { font-size: 11px !important; }
-                    .text-base { font-size: 12px !important; }
-                    .text-xl { font-size: 16px !important; }
-                    .text-2xl { font-size: 20px !important; }
+                    /* Patient Grid */
+                    .patient-box {
+                        border: 1px solid #cbd5e1;
+                        border-radius: 8px;
+                        padding: 12px 16px;
+                        margin-bottom: 25px;
+                        background-color: #f8fafc;
+                        display: grid;
+                        grid-template-columns: 1.5fr 1fr;
+                        gap: 15px;
+                    }
+                    .info-row {
+                        display: flex;
+                        margin-bottom: 6px;
+                        font-size: 12px;
+                        align-items: baseline;
+                    }
+                    .info-row:last-child { margin-bottom: 0; }
+                    .info-label {
+                        width: 90px;
+                        font-weight: 700;
+                        color: #64748b;
+                        text-transform: uppercase;
+                        font-size: 10px;
+                        flex-shrink: 0;
+                    }
+                    .info-val {
+                        font-weight: 600;
+                        color: #0f172a;
+                    }
+
+                    /* Diagnosis */
+                    .diagnosis-box {
+                        margin-bottom: 20px;
+                        padding: 10px;
+                        background-color: #f0fdf4;
+                        border: 1px dashed #16a34a;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        color: #15803d;
+                    }
+
+                    /* Rx Symbol */
+                    .rx-symbol {
+                        font-family: serif;
+                        font-size: 42px;
+                        font-weight: 900;
+                        font-style: italic;
+                        color: #0f172a;
+                        margin-bottom: 10px;
+                        margin-left: 5px;
+                    }
+
+                    /* Drug Table */
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 40px;
+                    }
+                    th {
+                        text-align: left;
+                        border-bottom: 2px solid #0f172a;
+                        padding: 10px 8px;
+                        font-size: 11px;
+                        text-transform: uppercase;
+                        color: #334155;
+                        font-weight: 700;
+                    }
+                    td {
+                        padding: 12px 8px;
+                        border-bottom: 1px solid #e2e8f0;
+                        vertical-align: top;
+                    }
+                    .drug-trade {
+                        font-size: 14px;
+                        font-weight: 800;
+                        color: #0f172a;
+                        display: block;
+                        margin-bottom: 2px;
+                    }
+                    .drug-generic {
+                        font-size: 11px;
+                        color: #64748b;
+                        font-style: italic;
+                        display: block;
+                        margin-bottom: 4px;
+                    }
+                    .drug-sig {
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #334155;
+                        background: #f1f5f9;
+                        display: inline-block;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                    }
+                    .qty-cell {
+                        text-align: center;
+                        font-weight: 800;
+                        font-size: 14px;
+                        vertical-align: middle;
+                    }
+
+                    /* Footer */
+                    .footer {
+                        position: absolute;
+                        bottom: 20mm;
+                        left: 10mm;
+                        right: 10mm;
+                        display: flex;
+                        justify-content: space-between;
+                        padding-top: 20px;
+                        border-top: 2px solid #e2e8f0;
+                    }
+                    .sig-block {
+                        width: 30%;
+                        text-align: center;
+                    }
+                    .sig-line {
+                        border-bottom: 1px solid #000;
+                        height: 40px;
+                        margin-bottom: 8px;
+                    }
+                    .sig-label {
+                        font-size: 10px;
+                        text-transform: uppercase;
+                        color: #94a3b8;
+                        font-weight: 700;
+                        letter-spacing: 0.5px;
+                    }
+                    .doc-details {
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #0f172a;
+                        margin-top: 4px;
+                    }
+
+                    /* Watermark */
+                    .watermark {
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%) rotate(-45deg);
+                        font-size: 100px;
+                        font-weight: 900;
+                        color: rgba(0,0,0,0.03);
+                        z-index: -1;
+                        pointer-events: none;
+                        white-space: nowrap;
+                    }
 
                     @media print {
-                        body { background: none; display: block; }
-                        .print-page { 
-                            width: 100%; 
-                            margin: 0; 
-                            box-shadow: none; 
-                            border: none; 
-                            padding: 10mm; /* Safe print margin */
-                        }
+                        @page { margin: 0; size: A4; }
+                        body { margin: 0; }
+                        .rx-container { border: none; min-height: 100vh; }
                     }
                 </style>
             </head>
             <body>
-                <div class="print-page">
-                    ${printElement.innerHTML}
+                <div class="rx-container">
+                    <div class="watermark">OFFICIAL PRESCRIPTION</div>
+                    
+                    <div class="header">
+                        <div class="hospital-info">
+                            <h1>${data.hospitalName || 'Medical Center'}</h1>
+                            <p>${data.hospitalAddress || 'Kingdom of Saudi Arabia'}</p>
+                        </div>
+                        <div class="meta-data">
+                            <div>Date: <strong>${data.date}</strong></div>
+                            <div>Ref: <strong>${data.fileNumber}</strong></div>
+                            ${data.licenseNumber ? `<div>Lic: <strong>${data.licenseNumber}</strong></div>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="patient-box">
+                        <div class="col">
+                            <div class="info-row"><span class="info-label">Patient</span> <span class="info-val">${data.patientName || '-'}</span></div>
+                            ${data.patientNameAr ? `<div class="info-row"><span class="info-label">Arabic</span> <span class="info-val" style="font-family:'Cairo'">${data.patientNameAr}</span></div>` : ''}
+                            <div class="info-row"><span class="info-label">ID Number</span> <span class="info-val">${data.patientId || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">Age / Sex</span> <span class="info-val">${data.patientAge || '-'} / ${data.patientGender || '-'}</span></div>
+                        </div>
+                        <div class="col">
+                            <div class="info-row"><span class="info-label">Doctor</span> <span class="info-val">${data.doctorName || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">Specialty</span> <span class="info-val">${data.doctorSpecialty || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">Insurance</span> <span class="info-val">${data.insuranceCompany || 'Cash'}</span></div>
+                        </div>
+                    </div>
+
+                    ${data.diagnosisDescription ? `
+                    <div class="diagnosis-box">
+                        <strong>DIAGNOSIS:</strong> ${data.diagnosisCode ? `[${data.diagnosisCode}]` : ''} ${data.diagnosisDescription}
+                    </div>` : ''}
+
+                    <div class="rx-symbol">Rx</div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th style="width: 80%">Medication & Instructions</th>
+                                <th style="width: 15%; text-align: center">Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.drugs?.map((drug, i) => `
+                                <tr>
+                                    <td>${i + 1}</td>
+                                    <td>
+                                        <span class="drug-trade">${drug.tradeName}</span>
+                                        <span class="drug-generic">${drug.genericName}</span>
+                                        <div class="drug-sig">${drug.dosage} • ${drug.usageMethod}</div>
+                                        ${drug.usageMethodAr ? `<div style="font-family:'Cairo'; font-size:11px; margin-top:4px; text-align:right; color:#64748b;">${drug.usageMethodAr}</div>` : ''}
+                                    </td>
+                                    <td class="qty-cell">${drug.quantity}</td>
+                                </tr>
+                            `).join('') || ''}
+                        </tbody>
+                    </table>
+
+                    <div class="footer">
+                        <div class="sig-block">
+                            <div class="sig-line"></div>
+                            <span class="sig-label">Patient Signature</span>
+                        </div>
+                        <div class="sig-block">
+                            <div class="sig-line"></div>
+                            <span class="sig-label">Pharmacist</span>
+                        </div>
+                        <div class="sig-block">
+                            <div class="sig-line"></div>
+                            <span class="sig-label">Doctor's Stamp & Signature</span>
+                            <div class="doc-details">${data.doctorName || ''}</div>
+                        </div>
+                    </div>
                 </div>
-                <script>
-                    window.onload = function() {
-                        setTimeout(function() {
-                            window.print();
-                        }, 1000); // Wait for Tailwind CDN
-                    };
-                </script>
             </body>
             </html>
         `;
 
-        printWindow.document.open();
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+
+        // Print after slight delay to ensure rendering
+        setTimeout(() => {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+        }, 500);
     };
 
     if (!data) {
         if (content && content.includes('---PRESCRIPTION_START---')) {
              return (
                 <div className="p-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                    Warning: Malformed prescription data received.
+                    Error loading prescription data.
                 </div>
              );
         }
         return null;
     }
     
-    // Preview Content (Styled with Tailwind for the UI, but Structure is mirrored in print styles)
-    const prescriptionContent = (
-        <div id={prescriptionId} dir="ltr" className="bg-white text-black p-4 w-full h-full flex flex-col">
-             {/* Header */}
-            <div className="header flex justify-between items-start border-b-2 border-black pb-4 mb-4">
-                <div className="text-left">
-                    <h1 className="text-xl font-bold">{data.hospitalName}</h1>
-                    <p className="text-sm text-gray-600">{data.hospitalAddress}</p>
+    // Preview Card Component
+    const PrescriptionPreviewCard = () => (
+        <div className="bg-white text-black p-4 w-full h-full flex flex-col border border-slate-200 rounded-sm font-sans text-xs relative overflow-hidden select-none">
+             {/* Simple Header */}
+            <div className="flex justify-between items-start border-b border-gray-300 pb-2 mb-2">
+                <div>
+                    <h1 className="text-sm font-bold text-slate-900 uppercase">{data.hospitalName}</h1>
+                    <p className="text-[9px] text-gray-500">{data.hospitalAddress}</p>
                 </div>
-                <div className="header-info text-right text-xs">
-                    <p><strong>CR No:</strong> {data.crNumber}</p>
-                    <p><strong>Tax No:</strong> {data.taxNumber}</p>
-                    <p><strong>License No:</strong> {data.licenseNumber}</p>
+                <div className="text-[9px] text-right text-gray-500">
+                    <p>{data.date}</p>
                 </div>
             </div>
             
-            <h2 className="title text-center text-2xl font-bold underline mb-6 uppercase">Prescription</h2>
-
-            {/* Patient & Doctor Info */}
-            <div className="section grid-2 grid grid-cols-2 gap-4 border border-gray-300 p-4 rounded mb-4 text-sm">
-                 <div className="space-y-1">
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('patientName')}:</span> <span>{data.patientNameAr || data.patientName}</span></div>
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('natId')}:</span> <span>{data.patientId}</span></div>
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('age')}/{t('gender')}:</span> <span>{data.patientAge || '-'} / {data.patientGender || '-'}</span></div>
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('fileNo')}:</span> <span>{data.fileNumber}</span></div>
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('date')}:</span> <span>{data.date}</span></div>
+            {/* Compact Patient Info */}
+            <div className="bg-slate-50 p-2 rounded mb-2 border border-slate-100">
+                 <div className="flex justify-between mb-1">
+                    <span className="font-bold text-[10px] text-gray-600">PATIENT:</span>
+                    <span className="font-bold">{data.patientName}</span>
                  </div>
-                 <div className="space-y-1">
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('doctorName')}:</span> <span>{data.doctorName}</span></div>
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('specialty')}:</span> <span>{data.doctorSpecialty}</span></div>
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('policy')}:</span> <span>{data.policy || '-'}</span></div>
-                    <div className="row flex gap-2"><span className="label font-bold w-28">{t('insurCompany')}:</span> <span>{data.insuranceCompany}</span></div>
+                 <div className="flex justify-between">
+                    <span className="font-bold text-[10px] text-gray-600">DOCTOR:</span>
+                    <span className="truncate max-w-[120px]">{data.doctorName}</span>
                  </div>
             </div>
 
-            <div className="section mb-4 border-b border-black pb-2 text-sm">
-                <strong>Diagnosis:</strong> {data.diagnosisCode} / {data.diagnosisDescription}
-            </div>
+            <div className="text-xl font-serif font-bold text-slate-800 italic mb-1">Rx</div>
             
-            {/* Drugs Table */}
-            <div className="flex-grow">
-                 <table className="w-full border-collapse border border-black text-sm mb-4">
-                    <thead>
-                        <tr className="bg-gray-100">
-                            <th className="border border-black p-2 w-12 text-center font-bold">#</th>
-                            <th className="border border-black p-2 w-32 text-left font-bold">CODE</th>
-                            <th className="border border-black p-2 text-left font-bold">Medication</th>
-                            <th className="border border-black p-2 w-20 text-center font-bold">Qty</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.drugs?.map((drug, index) => (
-                            <tr key={index}>
-                                <td className="border border-black p-2 text-center">{index + 1}</td>
-                                <td className="border border-black p-2">{drug.code || '-'}</td>
-                                <td className="border border-black p-2">
-                                    <div className="font-bold">R / {drug.genericName}</div>
-                                    <div>{drug.tradeName}</div>
-                                    <div className="text-xs mt-1 italic">{drug.dosage} {drug.usageMethod}</div>
-                                    {drug.usageMethodAr && <div className="text-xs text-right mt-1" dir="rtl">{drug.usageMethodAr}</div>}
-                                </td>
-                                <td className="border border-black p-2 text-center font-bold">{drug.quantity}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                 </table>
-            </div>
-
-            {/* Footer / Signature */}
-            <div className="footer grid grid-cols-3 gap-4 mt-8 text-sm">
-                <div className="signature-box border border-black h-24 p-2 flex flex-col justify-between items-center text-center">
-                    <span className="italic">{t('patientSign')}</span>
-                </div>
-                <div className="signature-box border border-black h-24 p-2 flex flex-col justify-between items-center text-center">
-                    <span className="italic">{t('pharmacistSign')}</span>
-                </div>
-                 <div className="signature-box border border-black h-24 p-2 flex flex-col justify-between items-center text-center relative">
-                    <span className="italic">{t('doctorSign')}</span>
-                     <div className="stamp absolute top-8 border-2 border-blue-800 text-blue-800 p-1 rounded transform -rotate-6 opacity-70">
-                        <div className="text-[10px] leading-tight">DR. {data.doctorName?.toUpperCase()}</div>
-                     </div>
-                     <strong className="mt-auto">{data.doctorName}</strong>
-                </div>
+            {/* Drugs List Preview */}
+            <div className="flex-grow space-y-2 overflow-hidden relative">
+                {data.drugs?.slice(0, 3).map((drug, index) => (
+                    <div key={index} className="border-b border-dashed border-gray-200 pb-1 last:border-0">
+                        <div className="flex justify-between">
+                            <span className="font-bold text-[11px] truncate">{drug.tradeName}</span>
+                            <span className="font-bold text-[10px] bg-slate-100 px-1 rounded">x{drug.quantity}</span>
+                        </div>
+                        <div className="text-[9px] text-gray-500 truncate">{drug.dosage}</div>
+                    </div>
+                ))}
+                {data.drugs && data.drugs.length > 3 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent flex items-end justify-center">
+                        <span className="text-[9px] text-gray-400">+{data.drugs.length - 3} more</span>
+                    </div>
+                )}
             </div>
         </div>
     );
 
     if (isExpanded) {
         return (
-             <div className="fixed inset-0 z-50 bg-black/80 flex justify-center items-center p-4 overflow-hidden animate-fade-in" onClick={() => setIsExpanded(false)}>
-                <div className="relative bg-white w-full max-w-4xl h-[90vh] rounded-lg shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-between items-center p-4 border-b">
-                        <h3 className="font-bold text-lg">Prescription Preview</h3>
+             <div className="fixed inset-0 z-50 bg-slate-900/90 flex justify-center items-center p-4 overflow-hidden animate-fade-in" onClick={() => setIsExpanded(false)}>
+                <div className="relative bg-white w-full max-w-3xl max-h-[90vh] rounded-lg shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center p-4 border-b bg-slate-50 rounded-t-lg">
+                        <h3 className="font-bold text-lg text-slate-800">Prescription Preview</h3>
                         <div className="flex gap-2">
                             <button
                                 onClick={handlePrint}
-                                className="px-4 py-2 bg-primary text-white font-semibold rounded hover:bg-blue-600 transition-colors flex items-center gap-2"
+                                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/20"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
                                 {t('print')}
                             </button>
                             <button 
                                 onClick={() => setIsExpanded(false)}
-                                className="p-2 hover:bg-gray-100 rounded-full"
+                                className="p-2 hover:bg-gray-200 rounded-full text-slate-500 transition-colors"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
                     </div>
                     
-                    <div className="flex-grow overflow-auto p-8 bg-gray-100 flex justify-center">
-                        <div className="bg-white shadow-lg w-[21cm] min-h-[29.7cm] origin-top transform scale-75 md:scale-100 transition-transform">
-                            {prescriptionContent}
+                    <div className="flex-grow overflow-auto p-4 md:p-8 bg-slate-200 flex justify-center">
+                        <div className="shadow-2xl w-full max-w-[210mm] bg-white min-h-[140mm] transform transition-transform">
+                             <iframe ref={iframeRef} className="hidden" />
+                             {/* In expanded view, we actually populate the iframe for printing, but we can't easily show the iframe content reactively without complex bridging. 
+                                 So we render a "Print Ready" placeholder or just rely on the print button. 
+                                 The handlePrint function populates the hidden iframe when clicked. 
+                             */}
+                             <div className="w-full h-full p-10 flex flex-col items-center justify-center text-center text-slate-400 space-y-4 border-2 border-dashed border-slate-300 m-4 rounded-lg bg-slate-50">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <div>
+                                    <p className="text-lg font-semibold text-slate-600">Print Preview Ready</p>
+                                    <p className="text-sm">Click the "Print" button above to generate the official document.</p>
+                                </div>
+                             </div>
                         </div>
                     </div>
                 </div>
@@ -278,31 +460,22 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
     }
     
     return (
-        <div className="w-full bg-white dark:bg-dark-card rounded-bl-none rounded-2xl overflow-hidden print:shadow-none print:border-none">
-             <div className="p-2 bg-white dark:bg-dark-card space-y-2">
-                 <div className="h-64 w-full overflow-hidden flex justify-center items-start border border-gray-300 dark:border-slate-600 rounded-md cursor-pointer relative bg-gray-50 group" onClick={() => setIsExpanded(true)}>
-                    {/* Thumbnail View */}
-                    <div className="absolute inset-0 pointer-events-none opacity-50 overflow-hidden transform scale-[0.35] origin-top-left w-[300%] h-[300%] p-4 bg-white">
-                         {prescriptionContent}
+        <div className="w-full group">
+             {/* Hidden Iframe for Printing */}
+             <iframe ref={iframeRef} className="hidden" />
+             
+             <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden cursor-pointer hover:shadow-md hover:border-primary/50 transition-all duration-200" onClick={() => setIsExpanded(true)}>
+                 <div className="h-64 w-full bg-slate-50 relative p-3 overflow-hidden">
+                    <div className="w-full h-full transform scale-100 origin-top opacity-90 group-hover:opacity-100 transition-opacity">
+                        <PrescriptionPreviewCard />
                     </div>
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors">
-                        <div className="bg-white/90 px-3 py-1 rounded shadow text-xs font-bold text-gray-700">Click to Preview</div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/10 via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute bottom-3 left-0 right-0 text-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-200">
+                        <span className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+                            {t('expandPrescription')}
+                        </span>
                     </div>
-                </div>
-                <div className="flex justify-center items-center gap-2 no-print">
-                     <button
-                        onClick={() => setIsExpanded(true)}
-                        className="flex-1 px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-xs"
-                    >
-                        {t('expandPrescription')}
-                    </button>
-                     <button
-                        onClick={handlePrint}
-                        className="flex-1 px-3 py-2 bg-primary text-white font-medium rounded-lg hover:bg-blue-500 transition-colors text-xs flex items-center justify-center gap-1"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                        {t('print')}
-                    </button>
                 </div>
             </div>
         </div>
