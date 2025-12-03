@@ -23,7 +23,7 @@ import { INITIAL_COSMETICS_DATA } from '../../data/cosmetics-data';
 import { setItem } from '../../utils/storage';
 
 const MEDICINES_CACHE_KEY = 'saudi_drug_directory_medicines_cache';
-const COSMETICS_CACHE_KEY = 'saudi_drug_directory_cosmetics_cache';
+const COSMETICS_CACHE_KEY = 'saudi_drug_directory_cosmetics_cache_v3';
 
 type Panel = 'menu' | 'overview' | 'users' | 'medicines' | 'insurance' | 'cosmetics' | 'settings' | 'migration' | 'addItem';
 

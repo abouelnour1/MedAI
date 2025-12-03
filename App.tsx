@@ -76,7 +76,7 @@ const normalizeMedicine = (item: any): Medicine => ({
 
 const FAVORITES_STORAGE_KEY = 'saudi_drug_directory_favorites';
 const MEDICINES_CACHE_KEY = 'saudi_drug_directory_medicines_cache';
-const COSMETICS_CACHE_KEY = 'saudi_drug_directory_cosmetics_cache';
+const COSMETICS_CACHE_KEY = 'saudi_drug_directory_cosmetics_cache_v3'; // Updated Version to force refresh
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -640,6 +640,15 @@ const App: React.FC = () => {
       setView('settings');
   }, [t]);
 
+  // Handle Reset Cosmetics to Default (Force Reload from Code)
+  const handleResetCosmeticsToDefault = useCallback(async () => {
+      if(!confirm(t('confirmResetCosmetics'))) return;
+      const defaultData = INITIAL_COSMETICS_DATA;
+      setCosmetics(defaultData);
+      await setItem(COSMETICS_CACHE_KEY, defaultData);
+      alert(t('resetSuccess'));
+  }, [t]);
+
   const headerTitle = useMemo(() => {
       if (view === 'details') return selectedMedicine?.['Trade Name'] || 'Details';
       if (view === 'cosmeticDetails') return selectedCosmetic?.SpecificName || 'Details';
@@ -934,6 +943,7 @@ const App: React.FC = () => {
                         <button onClick={() => setView('addData')} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 border-t border-gray-100 dark:border-slate-700"><div className="w-5 h-5"><DatabaseIcon /></div> {t('addData')}</button>
                         <button onClick={() => setView('addInsuranceData')} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 border-t border-gray-100 dark:border-slate-700"><div className="w-5 h-5"><DatabaseIcon /></div> {t('addInsuranceData')}</button>
                         <button onClick={() => setView('addCosmeticsData')} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 border-t border-gray-100 dark:border-slate-700"><div className="w-5 h-5"><DatabaseIcon /></div> {t('addCosmeticsData')}</button>
+                        <button onClick={handleResetCosmeticsToDefault} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 border-t border-gray-100 dark:border-slate-700 text-red-500"><div className="w-5 h-5"><TrashIcon /></div> {t('resetCosmeticsData')}</button>
                     </div>
                   )}
               </div>

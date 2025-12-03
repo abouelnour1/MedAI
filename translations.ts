@@ -364,6 +364,9 @@ export const translations = {
     signInGoogle: 'تسجيل الدخول بجوجل',
     signInApple: 'تسجيل الدخول بـ Apple',
     orContinueWith: 'أو الاستمرار بواسطة',
+    resetCosmeticsData: 'استعادة بيانات التجميل الأصلية',
+    confirmResetCosmetics: 'سيؤدي هذا إلى حذف جميع التغييرات المحلية التي أجريتها على بيانات التجميل واستعادتها كما هي في الكود المصدري. هل أنت متأكد؟',
+    resetSuccess: 'تمت استعادة البيانات بنجاح.',
   },
   en: {
     appTitle: 'PharmaSource',
@@ -729,6 +732,9 @@ export const translations = {
     signInGoogle: 'Sign in with Google',
     signInApple: 'Sign in with Apple',
     orContinueWith: 'Or continue with',
+    resetCosmeticsData: 'Reset Cosmetics to Original',
+    confirmResetCosmetics: 'This will delete all local changes to cosmetics and restore from source code. Are you sure?',
+    resetSuccess: 'Data reset successfully.',
   }
 };
 
