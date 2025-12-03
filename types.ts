@@ -132,6 +132,7 @@ export interface PrescriptionData {
   fileNumber?: string;
   date?: string;
   doctorName?: string;
+  doctorNameAr?: string;
   doctorSpecialty?: string;
   policy?: string;
   insuranceCompany?: string;

@@ -148,6 +148,7 @@ const App: React.FC = () => {
       } catch { return []; }
   });
   const [currentChatHistory, setCurrentChatHistory] = useState<ChatMessage[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   // Insurance Search
   const [insuranceSearchTerm, setInsuranceSearchTerm] = useState('');
@@ -654,6 +655,7 @@ const App: React.FC = () => {
       setSelectedMedicine(null); 
       setSelectedCosmetic(null);
       setAssistantPrompt(''); 
+      setActiveConversationId(null);
       setIsAssistantOpen(true); 
   }, [checkAiAccess]);
 
@@ -664,6 +666,7 @@ const App: React.FC = () => {
         return; 
     }
     setAssistantPrompt('##PRESCRIPTION_MODE##'); 
+    setActiveConversationId(null);
     setIsAssistantOpen(true);
   }, [user, t, checkAiAccess]);
 
@@ -671,6 +674,7 @@ const App: React.FC = () => {
       if (!checkAiAccess()) return;
       setSelectedMedicine(medicine);
       setAssistantPrompt('');
+      setActiveConversationId(null);
       setIsAssistantOpen(true);
   }, [checkAiAccess]);
   
@@ -678,6 +682,7 @@ const App: React.FC = () => {
       if (!checkAiAccess()) return;
       setSelectedCosmetic(cosmetic);
       setAssistantPrompt('');
+      setActiveConversationId(null);
       setIsAssistantOpen(true);
   }, [checkAiAccess]);
 
@@ -690,9 +695,50 @@ const App: React.FC = () => {
       setChatHistory([]);
   }, []);
 
+  // --- Handle Save Assistant History ---
+  const handleSaveAssistantHistory = useCallback((hist: ChatMessage[]) => {
+      setIsAssistantOpen(false);
+      setCurrentChatHistory([]);
+
+      // 1. Don't save if empty or no user interaction
+      const hasUserMessage = hist.some(msg => msg.role === 'user');
+      if (!hasUserMessage) {
+          setActiveConversationId(null);
+          return;
+      }
+
+      setChatHistory(prev => {
+          // 2. Update existing if active
+          if (activeConversationId) {
+              return prev.map(c => {
+                  if (c.id === activeConversationId) {
+                      return {
+                          ...c,
+                          messages: hist,
+                          timestamp: Date.now() // Update timestamp to bump to top
+                      };
+                  }
+                  return c;
+              });
+          }
+
+          // 3. Create New
+          const firstUserMsg = hist.find(m => m.role === 'user');
+          const titleText = firstUserMsg?.parts.find(p => p.text)?.text || 'New Conversation';
+          const newConvo: Conversation = {
+              id: Date.now().toString(),
+              title: titleText.slice(0, 30) + (titleText.length > 30 ? '...' : ''),
+              messages: hist,
+              timestamp: Date.now()
+          };
+          return [...prev, newConvo];
+      });
+      setActiveConversationId(null);
+  }, [activeConversationId]);
+
   const handleMedicineLongPress = useCallback((m: Medicine) => {
         if (checkAiAccess()) {
-            setSelectedMedicine(m); setAssistantPrompt(''); setIsAssistantOpen(true); 
+            setSelectedMedicine(m); setAssistantPrompt(''); setActiveConversationId(null); setIsAssistantOpen(true); 
         }
   }, [checkAiAccess]);
 
@@ -700,6 +746,7 @@ const App: React.FC = () => {
         if (checkAiAccess()) {
             setSelectedCosmetic(c);
             setAssistantPrompt('');
+            setActiveConversationId(null);
             setIsAssistantOpen(true);
         }
   }, [checkAiAccess]);
@@ -715,6 +762,7 @@ const App: React.FC = () => {
           return <ChatHistoryView 
               conversations={chatHistory}
               onSelectConversation={(convo) => {
+                  setActiveConversationId(convo.id);
                   setCurrentChatHistory(convo.messages);
                   setIsAssistantOpen(true);
               }}
@@ -917,18 +965,7 @@ const App: React.FC = () => {
       </div>
       <AssistantModal 
         isOpen={isAssistantOpen} 
-        onSaveAndClose={(hist) => { 
-            if (hist && hist.length > 0) {
-              setChatHistory(prev => [...prev, { 
-                  id: Date.now().toString(), 
-                  title: hist[0]?.parts?.[0]?.text?.slice(0, 30) || 'Chat', 
-                  messages: hist, 
-                  timestamp: Date.now() 
-              }]); 
-            }
-            setIsAssistantOpen(false); 
-            setCurrentChatHistory([]); 
-        }} 
+        onSaveAndClose={handleSaveAssistantHistory} 
         contextMedicine={selectedMedicine} 
         contextCosmetic={selectedCosmetic} 
         allMedicines={medicines} 

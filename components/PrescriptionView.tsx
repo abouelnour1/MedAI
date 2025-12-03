@@ -265,8 +265,8 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
                         top: -50px;
                         left: 50%;
                         transform: translateX(-50%) rotate(-2deg);
-                        width: 150px;
-                        height: 60px;
+                        width: 160px;
+                        height: 70px;
                         border: 3px double #1e3a8a; /* Royal Blue Double Border */
                         border-radius: 4px; /* Rectangular with slight radius */
                         display: flex;
@@ -305,21 +305,33 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
                         font-size: 9px;
                         font-weight: 700;
                         display: flex;
-                        justify-content: space-around;
+                        flex-direction: column;
+                        justify-content: center;
                         align-items: center;
                         flex-grow: 1;
+                        line-height: 1.1;
                     }
                     .stamp-date {
                         font-family: 'Courier New', monospace;
-                        font-size: 9px;
+                        font-size: 8px;
                         letter-spacing: -0.5px;
+                        margin-top: 2px;
                     }
                     .stamp-sig {
-                        font-family: 'Brush Script MT', cursive;
-                        font-size: 14px;
-                        border-top: 1px solid #1e3a8a;
                         margin-top: 1px;
                         padding-top: 1px;
+                        border-top: 1px solid #1e3a8a;
+                        height: 20px;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                    .signature-svg {
+                        width: 40px;
+                        height: 18px;
+                        stroke: #1e3a8a;
+                        stroke-width: 1.5;
+                        fill: none;
                     }
 
                     /* Watermark */
@@ -419,10 +431,16 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
                                 <div class="stamp-inner">
                                     <div class="stamp-header">SAUDI HEALTH CENTER</div>
                                     <div class="stamp-body">
-                                        <div style="font-size:8px">LIC: ${Math.floor(Math.random() * 90000) + 10000}</div>
+                                        <div style="font-family:'Cairo'; font-weight:700; font-size:10px;">${data.doctorNameAr || (data.doctorName ? 'د. ' + data.doctorName.split(' ')[0] : 'د. طبيب')}</div>
+                                        <div style="font-size:7px; margin-top:1px;">LIC: ${Math.floor(Math.random() * 90000) + 10000}</div>
                                         <div class="stamp-date">${data.date}</div>
                                     </div>
-                                    <div class="stamp-sig">Signed</div>
+                                    <div class="stamp-sig">
+                                        <svg class="signature-svg" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                            <path d="M5,20 Q15,5 25,20 T45,20 T65,20 T85,20 T95,15" fill="none" stroke-linecap="round" />
+                                            <path d="M10,25 Q30,35 50,25 T90,25" fill="none" stroke-linecap="round" stroke-dasharray="2,2" />
+                                        </svg>
+                                    </div>
                                 </div>
                             </div>
                             <div class="sig-line"></div>
@@ -536,16 +554,21 @@ const PrescriptionView: React.FC<{ content?: string; prescriptionData?: Prescrip
 
             {/* Realistic Rectangular Stamp Preview */}
             <div className="absolute bottom-4 right-4 transform rotate-[-2deg] opacity-80 pointer-events-none z-10 
-                            w-[100px] h-[40px] border-[2px] border-double border-blue-900 rounded-[3px] 
+                            w-[100px] h-[45px] border-[2px] border-double border-blue-900 rounded-[3px] 
                             flex flex-col items-center justify-center bg-transparent 
                             shadow-[0_0_0_1px_rgba(30,58,138,0.1)] text-blue-900 font-mono leading-none">
                 <div className="w-[94%] h-[90%] border border-blue-900 flex flex-col justify-between text-center py-[2px]">
                     <div className="text-[6px] font-black uppercase border-b border-blue-900 w-full text-center pb-[1px]">SAUDI HEALTH CENTER</div>
-                    <div className="flex justify-between w-full px-1 text-[5px] font-bold mt-[1px]">
-                        <span>LIC:{Math.floor(Math.random() * 90000) + 10000}</span>
-                        <span className="tracking-tighter">{data.date}</span>
+                    <div className="flex flex-col items-center justify-center flex-grow">
+                        <div className="text-[7px] font-bold font-sans">{data.doctorNameAr || (data.doctorName ? 'د. ' + data.doctorName.split(' ')[0] : 'طبيب')}</div>
+                        <div className="text-[5px] mt-[1px]">LIC:{Math.floor(Math.random() * 90000) + 10000}</div>
+                        <div className="text-[5px] mt-[1px] font-mono tracking-tighter">{data.date}</div>
                     </div>
-                    <div className="font-serif italic text-[8px] text-blue-900 leading-none mt-0.5 border-t border-blue-900 pt-[1px]">Signed</div>
+                    <div className="flex justify-center border-t border-blue-900 pt-[1px]">
+                         <svg width="25" height="8" viewBox="0 0 50 20" className="stroke-blue-900 fill-none" strokeWidth="2">
+                            <path d="M5,15 Q15,5 25,15 T45,15" />
+                         </svg>
+                    </div>
                 </div>
             </div>
         </div>
