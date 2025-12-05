@@ -1,10 +1,17 @@
 apply plugin: 'com.android.application'
 
 android {
+<<<<<<< HEAD
     namespace "com.ahmed.pharmasource"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.ahmed.pharmasource"
+=======
+    namespace "com.pharmasource.app"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.pharmasource.app"
+>>>>>>> 78f14f6 (Fix JSX syntax error in System Log label)
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

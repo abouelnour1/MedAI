@@ -1,7 +1,14 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+<<<<<<< HEAD
     <string name="app_name">PharmaSource</string>
     <string name="title_activity_main">PharmaSource</string>
     <string name="package_name">com.ahmed.pharmasource</string>
     <string name="custom_url_scheme">com.ahmed.pharmasource</string>
+=======
+    <string name="app_name">pharmasource</string>
+    <string name="title_activity_main">pharmasource</string>
+    <string name="package_name">com.pharmasource.app</string>
+    <string name="custom_url_scheme">com.pharmasource.app</string>
+>>>>>>> 78f14f6 (Fix JSX syntax error in System Log label)
 </resources>
