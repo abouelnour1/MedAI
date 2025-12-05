@@ -38,6 +38,9 @@ if (!FIREBASE_DISABLED) {
     
     // Initialize Providers
     googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({
+        prompt: 'select_account'
+    });
     
     // Initialize Functions specifically
     try {

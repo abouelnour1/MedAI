@@ -11,18 +11,18 @@ import {
   sendPasswordResetEmail,
   setPersistence,
   browserLocalPersistence,
-  signInWithPopup,
+  signInWithRedirect, 
+  getRedirectResult,
   User as FirebaseUser
 } from 'firebase/auth';
 import { 
   doc, 
   getDoc, 
   setDoc, 
-  collection, 
   getDocs, 
   updateDoc, 
   deleteDoc,
-  serverTimestamp 
+  collection
 } from 'firebase/firestore';
 
 const SETTINGS_DOC_ID = 'app_settings';
@@ -43,6 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [isLoading, setIsLoading] = useState(() => {
+      // If we have a user, we aren't "loading" initially, we are optimistically showing content.
+      // Real sync happens in background.
       return !localStorage.getItem(LOCAL_USER_STORAGE_KEY);
   });
 
@@ -64,16 +66,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
     }
 
+    // Handle Redirect Result (Main flow for Google Auth on Mobile)
+    getRedirectResult(auth)
+        .then(async (result) => {
+            if (result && result.user) {
+                // User returned from Google Login successfully
+                await syncUserData(result.user);
+            }
+        })
+        .catch(error => {
+            console.error("Redirect Login Result Error:", error);
+            // Handle specific domain error that users often face when deploying
+            if (error.code === 'auth/unauthorized-domain') {
+                alert(`Configuration Error: The current domain (${window.location.hostname}) is not authorized in Firebase.\n\nPlease go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add this domain.`);
+            } else if (error.code === 'auth/network-request-failed') {
+                // Ignore network errors on redirect result, usually transient
+            } else {
+                // Only alert for real authentication failures to avoid spamming the user
+               console.warn("Auth Redirect Error", error.message);
+            }
+        });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         await syncUserData(firebaseUser);
       } else {
         const cachedUser = localStorage.getItem(LOCAL_USER_STORAGE_KEY);
-        if (!isLoading) { 
+        // Only clear if we were not already in a logged-out state to prevent unnecessary renders
+        if (cachedUser) {
              setUser(null);
              localStorage.removeItem(LOCAL_USER_STORAGE_KEY);
-        } else {
-             setUser(null);
         }
         setIsLoading(false);
       }
@@ -91,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const firestoreData = userDocSnap.data();
             let emailVerified = firebaseUser.emailVerified;
             
+            // Sync verification status to Firestore if changed
             if (emailVerified && !firestoreData.emailVerified) {
                 updateDoc(userDocRef, { emailVerified: true }).catch(e => console.log("Offline: Could not update verify status"));
             }
@@ -107,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(finalUser);
             localStorage.setItem(LOCAL_USER_STORAGE_KEY, JSON.stringify(finalUser));
           } else {
+              // Create new user doc
               const newUser: User = {
                   id: firebaseUser.uid,
                   username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
@@ -124,7 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               localStorage.setItem(LOCAL_USER_STORAGE_KEY, JSON.stringify(newUser));
           }
       } catch (e) {
-          console.log("Network issue or offline: keeping existing cached user data.");
+          console.log("Network issue or offline: keeping existing cached user data.", e);
+          // If offline, we might already have the user from cache, so just ensure loading is false
       } finally {
           setIsLoading(false);
       }
@@ -159,17 +184,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = useCallback(async (): Promise<void> => {
       if (FIREBASE_DISABLED) throw new Error("Firebase unavailable");
+      setIsLoading(true);
       try {
-          await signInWithPopup(auth, googleProvider);
-          // syncUserData is called automatically by onAuthStateChanged
+          // Use signInWithRedirect for better mobile support (prevents popup blocking and crashes)
+          await signInWithRedirect(auth, googleProvider);
+          // The page will redirect to Google, so execution effectively stops here for the user.
+          // When they return, getRedirectResult (above) will handle the login.
       } catch (error: any) {
           console.error("Google Login Error:", error);
-          if (error.code === 'auth/popup-closed-by-user') throw new Error('تم إغلاق النافذة من قبل المستخدم.');
+          setIsLoading(false);
+          // Redirect errors are rare unless config is wrong
           if (error.code === 'auth/unauthorized-domain') {
               const currentDomain = window.location.hostname;
-              throw new Error(`النطاق الحالي غير مصرح به في Firebase.\n\nيرجى نسخ هذا الرابط وإضافته في Authorized Domains:\n\n${currentDomain}`);
+              throw new Error(`النطاق الحالي غير مصرح به في Firebase.\n\nيرجى إضافة: ${currentDomain}`);
           }
-          throw new Error('فشل تسجيل الدخول بواسطة جوجل: ' + (error.message || 'خطأ غير معروف'));
+          throw new Error('فشل بدء تسجيل الدخول بواسطة جوجل: ' + (error.message || 'خطأ غير معروف'));
       }
   }, []);
 
@@ -249,14 +278,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             await auth.currentUser.reload();
             const currentUser = auth.currentUser;
-            if (currentUser) {
+            // Only full sync if email status changed to verified, otherwise light sync
+            if (currentUser.emailVerified && user && !user.emailVerified) {
                 await syncUserData(currentUser);
             }
         } catch(e) {
             console.log("Offline: Cannot reload user from server.");
         }
     }
-  }, []);
+  }, [user]);
   
   const getSettings = useCallback((): AppSettings => {
     try {
