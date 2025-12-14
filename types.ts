@@ -81,9 +81,29 @@ export interface Cosmetic {
   Highlights?: string;
 }
 
+// New Interface for Milk/Formula
+export interface MilkProduct {
+  id: string;
+  name: string; // Brand name (e.g., Similac Gold)
+  type: 'Standard' | 'Special';
+  
+  // Standard Fields
+  stage?: string; // "1", "2", "3"
+  ageRange?: string; // "0-6 Months"
+  
+  // Special Fields
+  specialType?: string; // "AR", "LF", "Pre"
+  indication?: string; // "Regurgitation", "Lactose Intolerance"
+  
+  // Common Fields
+  features: string; // Key Features / Ingredients / Composition
+  differences: string; // Key Differences
+  price?: string;
+}
+
 export type ProductTypeFilter = 'all' | 'medicine' | 'supplement';
 
-export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addCosmeticsData' | 'cosmeticsSearch' | 'cosmeticDetails' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites' | 'verifyEmail' | 'aiHistory';
+export type View = 'search' | 'addData' | 'details' | 'results' | 'alternatives' | 'settings' | 'chatHistory' | 'insuranceSearch' | 'addInsuranceData' | 'addCosmeticsData' | 'cosmeticsSearch' | 'cosmeticDetails' | 'prescriptions' | 'insuranceDetails' | 'login' | 'register' | 'admin' | 'favorites' | 'verifyEmail' | 'aiHistory' | 'milkSearch';
 
 export type TextSearchMode = 'tradeName' | 'scientificName' | 'all';
 
@@ -101,7 +121,7 @@ export interface Filters {
 export type Language = 'ar' | 'en';
 export type TFunction = (key: TranslationKeys, replacements?: { [key: string]: string | number }) => string;
 
-export type Tab = 'search' | 'insurance' | 'prescriptions' | 'cosmetics' | 'settings';
+export type Tab = 'search' | 'insurance' | 'prescriptions' | 'cosmetics' | 'milk' | 'settings';
 
 export type SortByOption = 'alphabetical' | 'scientificName' | 'priceAsc' | 'priceDesc';
 

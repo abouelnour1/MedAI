@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffe
 import { 
   Medicine, View, Filters, TextSearchMode, Language, TFunction, Tab, SortByOption, 
   Conversation, ChatMessage, InsuranceDrug, PrescriptionData, SelectedInsuranceData, 
-  InsuranceSearchMode, Cosmetic
+  InsuranceSearchMode, Cosmetic, MilkProduct
 } from './types';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
@@ -26,6 +26,7 @@ import CosmeticDetail from './components/CosmeticDetail';
 import AddCosmeticsDataView from './components/AddCosmeticsDataView';
 import FavoritesView from './components/FavoritesView';
 import BarcodeScannerModal from './components/BarcodeScannerModal';
+import MilkView from './components/MilkView';
 
 // Auth Components
 import { LoginView } from './components/auth/LoginView';
@@ -96,6 +97,7 @@ const App: React.FC = () => {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [insuranceData, setInsuranceData] = useState<InsuranceDrug[]>([]);
   const [cosmetics, setCosmetics] = useState<Cosmetic[]>([]);
+  const [milkProducts, setMilkProducts] = useState<MilkProduct[]>([]);
   const [clinicalGuidelines, setClinicalGuidelines] = useState<any>({});
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -197,14 +199,17 @@ const App: React.FC = () => {
                 await setItem(COSMETICS_CACHE_KEY, cosmeticsData);
             }
 
-            // Load Insurance & Guidelines Dynamically
+            // Load Insurance, Milk & Guidelines Dynamically
             const { INITIAL_INSURANCE_DATA } = await import('./data/insurance-data');
             const { CUSTOM_INSURANCE_DATA } = await import('./data/custom-insurance-data');
             const { INITIAL_GUIDELINES_DATA } = await import('./data/guidelines-data');
+            const { INITIAL_MILK_DATA } = await import('./data/milk-data');
+            const { CUSTOM_MILK_DATA } = await import('./data/custom-milk-data');
 
             // Update State
             setMedicines(medicinesData || []);
             setCosmetics(cosmeticsData || []);
+            setMilkProducts([...(INITIAL_MILK_DATA || []), ...(CUSTOM_MILK_DATA || [])]);
             setInsuranceData([...INITIAL_INSURANCE_DATA, ...CUSTOM_INSURANCE_DATA]);
             setClinicalGuidelines(INITIAL_GUIDELINES_DATA);
             setIsDataLoaded(true);
@@ -281,7 +286,7 @@ const App: React.FC = () => {
     const container = document.getElementById('main-scroll-container');
     if (!container) return;
 
-    if (view === 'results' || view === 'cosmeticsSearch') {
+    if (view === 'results' || view === 'cosmeticsSearch' || view === 'milkSearch') {
       if (scrollPositionRef.current > 0) {
         setTimeout(() => {
             if(container) container.scrollTop = scrollPositionRef.current;
@@ -641,13 +646,14 @@ const App: React.FC = () => {
       if (view === 'alternatives') return t('alternativesFor', { name: sourceMedicine ? sourceMedicine['Trade Name'] : '' });
       if (activeTab === 'insurance') return t('navInsurance');
       if (activeTab === 'cosmetics') return t('navCosmetics');
+      if (activeTab === 'milk') return t('navMilk');
       if (activeTab === 'settings') return t('navSettings');
       if (view === 'aiHistory') return t('chatHistoryTitle');
       return t('appTitle');
   }, [view, activeTab, selectedMedicine, selectedCosmetic, sourceMedicine, t]);
 
   const showBackButton = useMemo(() => {
-      return view !== 'search' && view !== 'settings' && view !== 'insuranceSearch' && view !== 'cosmeticsSearch';
+      return view !== 'search' && view !== 'settings' && view !== 'insuranceSearch' && view !== 'cosmeticsSearch' && view !== 'milkSearch';
   }, [view]);
 
   // --- Handlers for Assistant with Security Checks ---
@@ -866,6 +872,10 @@ const App: React.FC = () => {
           );
       }
 
+      if (activeTab === 'milk') {
+          return <MilkView milkProducts={milkProducts} t={t} language={language} />;
+      }
+
       if (activeTab === 'cosmetics') {
           if (view === 'cosmeticDetails' && selectedCosmetic) {
               return <CosmeticDetail cosmetic={selectedCosmetic} t={t} language={language} user={user} onEdit={handleEditCosmetic} />;
@@ -974,6 +984,7 @@ const App: React.FC = () => {
             if (tab === 'search') setView('search');
             else if (tab === 'insurance') setView('insuranceSearch');
             else if (tab === 'cosmetics') setView('cosmeticsSearch');
+            else if (tab === 'milk') setView('milkSearch');
             else if (tab === 'settings') setView('settings');
         }} 
         t={t} 

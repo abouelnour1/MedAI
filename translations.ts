@@ -367,6 +367,14 @@ export const translations = {
     resetCosmeticsData: 'استعادة بيانات التجميل الأصلية',
     confirmResetCosmetics: 'سيؤدي هذا إلى حذف جميع التغييرات المحلية التي أجريتها على بيانات التجميل واستعادتها كما هي في الكود المصدري. هل أنت متأكد؟',
     resetSuccess: 'تمت استعادة البيانات بنجاح.',
+    navMilk: 'حليب الأطفال',
+    searchMilkPlaceholder: 'ابحث باسم الحليب أو الخصائص...',
+    keyFeatures: 'المميزات الرئيسية',
+    keyDifferences: 'أهم الفروقات',
+    composition: 'التركيبة',
+    standardFormula: 'حليب عادي',
+    specialFormula: 'حليب خاص',
+    all: 'الكل',
   },
   en: {
     appTitle: 'PharmaSource',
@@ -735,6 +743,14 @@ export const translations = {
     resetCosmeticsData: 'Reset Cosmetics to Original',
     confirmResetCosmetics: 'This will delete all local changes to cosmetics and restore from source code. Are you sure?',
     resetSuccess: 'Data reset successfully.',
+    navMilk: 'Formula',
+    searchMilkPlaceholder: 'Search formula name or features...',
+    keyFeatures: 'Key Features',
+    keyDifferences: 'Key Differences',
+    composition: 'Composition',
+    standardFormula: 'Standard Formula',
+    specialFormula: 'Special Formula',
+    all: 'All',
   }
 };
 

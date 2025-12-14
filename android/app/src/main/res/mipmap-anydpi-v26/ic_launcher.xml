@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-<<<<<<< HEAD
-    <background android:drawable="@color/ic_launcher_background"/>
-=======
     <background android:drawable="@drawable/ic_launcher_background"/>
->>>>>>> 78f14f6 (Fix JSX syntax error in System Log label)
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>
