@@ -1,10 +1,9 @@
 
 import { MilkProduct } from '../types';
 
-export const INITIAL_MILK_DATA: MilkProduct[] = [
-  // --- STANDARD FORMULAS (Examples) ---
-  {
-    "Brand": "Similac Gold",
+// --- STANDARD FORMULAS (Raw Data in User Format) ---
+const RAW_STANDARD_MILK = [
+  "Brand": "Similac Gold",
     "Stage": "1",
     "Age Range": "0-6 Months",
     "Key Features / Ingredients": "HMO (2'-FL), Lutein, Natural Vitamin E, DHA/ARA, Palm Olein Free.",
@@ -128,9 +127,11 @@ export const INITIAL_MILK_DATA: MilkProduct[] = [
     "Age Range": "0-6 Months",
     "Key Features / Ingredients": "Cow's milk-based, fortified with Vitamins and Minerals.",
     "Key Differences": "Locally produced, widely available standard formula."
-  },
+  }
+];
 
-  // --- SPECIAL FORMULAS (Full List) ---
+// --- SPECIAL FORMULAS (Typed) ---
+const SPECIAL_MILK_DATA: MilkProduct[] = [
   {
     id: 'similac-total-comfort',
     name: "Similac Total Comfort",
@@ -248,4 +249,20 @@ export const INITIAL_MILK_DATA: MilkProduct[] = [
     features: "100% free amino acids, hypoallergenic.",
     differences: "Elemental formula for the most severe allergies and complex malabsorption issues."
   }
+];
+
+// Convert RAW user format to App Internal Format
+const normalizedStandardMilk = RAW_STANDARD_MILK.map((item, index) => ({
+    id: `std-${item.Brand.replace(/\s+/g, '-').toLowerCase()}-${item.Stage}`,
+    name: item.Brand,
+    type: 'Standard' as const,
+    stage: item.Stage,
+    ageRange: item["Age Range"],
+    features: item["Key Features / Ingredients"],
+    differences: item["Key Differences"]
+}));
+
+export const INITIAL_MILK_DATA: MilkProduct[] = [
+    ...normalizedStandardMilk,
+    ...SPECIAL_MILK_DATA
 ];
