@@ -1,6 +1,7 @@
 
 import { MilkProduct } from '../types';
 
+// تصحيح الخطأ: استخدام الأقواس المعقوفة {}
 interface RawStandardMilk {
   "Brand": string;
   "Stage": string;
