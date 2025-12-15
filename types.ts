@@ -97,6 +97,17 @@ export interface MilkProduct {
   
   keyFeatures: string;
   usp: string; // Unique Selling Point / Description
+  
+  // Advanced Explanation (Arabic/Bilingual support)
+  explanation?: {
+    type?: {
+      title: string;
+      description: string;
+      when_to_use: string;
+      benefits: string;
+      side_effects: string;
+    }
+  };
 }
 
 export type ProductTypeFilter = 'all' | 'medicine' | 'supplement';

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MilkProduct, TFunction } from '../types';
 import ClearIcon from './icons/ClearIcon';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -12,6 +12,18 @@ interface MilkComparisonModalProps {
 }
 
 const MilkComparisonModal: React.FC<MilkComparisonModalProps> = ({ products, isOpen, onClose, t }) => {
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen || products.length < 2) return null;
 
   const [p1, p2] = products;
@@ -31,7 +43,7 @@ const MilkComparisonModal: React.FC<MilkComparisonModalProps> = ({ products, isO
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 sm:p-4 animate-fade-in backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 sm:p-4 animate-fade-in backdrop-blur-sm" onClick={onClose} style={{ touchAction: 'none' }}>
       <div className="bg-white dark:bg-dark-card w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
         
         {/* Modal Header */}
@@ -45,7 +57,7 @@ const MilkComparisonModal: React.FC<MilkComparisonModalProps> = ({ products, isO
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-grow bg-white dark:bg-dark-card relative">
+        <div className="overflow-y-auto flex-grow bg-white dark:bg-dark-card relative overscroll-contain">
             <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-10 shadow-md">
                     <tr className="bg-white dark:bg-dark-card">
