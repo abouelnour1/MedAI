@@ -3,7 +3,8 @@ import { MilkProduct } from '../types';
 
 // Raw data in the format requested by user
 const RAW_MILK_DATA = [
-  {
+    // --- WELLGROW (User Example) ---
+    {
       "brand": "Nan",
       "productName": "NAN Optipro 1",
       "stageType": "Stage 1 (0-6 months) / Standard",
